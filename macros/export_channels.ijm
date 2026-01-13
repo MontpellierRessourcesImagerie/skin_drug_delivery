@@ -9,6 +9,9 @@ for (i = 0; i < images.length; i++) {
     path = folder + File.separator + image;
     run("Bio-Formats", "open=[" + path + "] color_mode=Default rois_import=[ROI manager] view=Hyperstack stack_order=XYCZT");
     getDimensions(width, height, channels, slices, frames);
+    if (slices>1) {
+        run("Z Project...", "projection=[Max Intensity]");
+    }
     for (c = 1; c <= channels; c++) {
         File.makeDirectory(folder + File.separator + "C" + c);
         run("Duplicate...", "duplicate channels=" + c);
@@ -16,7 +19,7 @@ for (i = 0; i < images.length; i++) {
         save(folder + File.separator + "C" + c + File.separator + outName + ".tif");
         close();
     }
-    close();
+    close("*");
 }
 
 

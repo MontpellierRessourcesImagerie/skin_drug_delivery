@@ -121,11 +121,12 @@ function createRGBWithScaleBar() {
     if (channels>10) {
         close("*");
         continue;
-    }
+    } 
+    /*
     for (c = 1; c <= channels; c++) {
         Stack.setChannel(c);
         run("Enhance Contrast", "saturated=" + CONTRAST_SATURATION);
-    }
+    }*/
     Property.set("CompositeProjection", "Sum");
     Stack.setDisplayMode("composite");
     run("RGB Color");

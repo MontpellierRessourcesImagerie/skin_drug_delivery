@@ -1,6 +1,6 @@
-RADIUS_VARIANCE = 1  // 4
+RADIUS_VARIANCE =  4
 THRESHOLDING_METHOD = "Yen"
-OPEN_ITERATIONS = 1 // 4
+OPEN_ITERATIONS = 4
 BRIGHTFIELD_CHANNEL = 3
 
 getDimensions(width, height, channels, slices, frames);
@@ -15,6 +15,7 @@ run("Variance...", "radius=" + RADIUS_VARIANCE + " stack");
 setAutoThreshold(THRESHOLDING_METHOD + " dark no-reset");
 run("Convert to Mask", "method=" + THRESHOLDING_METHOD + " background=Dark black");
 maskID = getImageID();
+run("Morphological Filters", "operation=Closing element=Square radius="+OPEN_ITERATIONS);
 run("Fill Holes", "stack");
 run("Invert", "stack");
 run("Fill Holes", "stack");
@@ -24,15 +25,6 @@ run("Remove Border Labels", "top");
 labelsNoBordersID = getImageID();
 run("Keep Largest Region");
 labelsLargestID = getImageID();
-run("Options...", "iterations=" + OPEN_ITERATIONS + " count=1 black do=Open");
+run("Morphological Filters", "operation=Opening element=Square radius="+OPEN_ITERATIONS);
 run("Keep Largest Region");
-closeImage(maskID);
-closeImage(labelsID);
-closeImage(labelsNoBordersID);
-closeImage(labelsLargestID);
 
-
-function closeImage(id) {
-    selectImage(id);
-    close();
-}
