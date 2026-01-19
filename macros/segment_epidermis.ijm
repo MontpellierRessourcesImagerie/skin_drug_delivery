@@ -1,4 +1,5 @@
 SIGMA = 32;
+FILL_HOLES = true;
 
 segmentEpidermis();
 
@@ -11,7 +12,7 @@ function segmentEpidermis() {
     setAutoThreshold("Default dark no-reset");
     setOption("BlackBackground", false);
     run("Convert to Mask");
-    run("Fill Holes");
+    if (FILL_HOLES) run("Fill Holes");
     run("Connected Components Labeling", "connectivity=4 type=[16 bits]");
     labelsID = getImageID();
     run("Keep Largest Region");

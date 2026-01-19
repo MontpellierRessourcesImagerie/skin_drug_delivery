@@ -7,7 +7,7 @@ selectSkin();
 function selectSkin() {
     run("Select None");
     imageID = getImageID();
-    run("Duplicate...", "duplicate");
+    run("Duplicate...", " ");
     run("normalize slices");
     run("Enhance Contrast", "saturated=0.35");
     run("Find Edges");
