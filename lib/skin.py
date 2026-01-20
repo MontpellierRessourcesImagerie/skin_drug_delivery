@@ -1,5 +1,8 @@
+from ij import ImagePlus
 from ij.plugin import ZProjector
-
+from ij.process import ImageConverter
+from ij.plugin.filter import RankFilters
+from ij.process import AutoThresholder
 
 
 class SkinAnalyzer(object):
@@ -20,6 +23,8 @@ class SkinAnalyzer(object):
         self.nucleiChannel = 1
         self.signalChannel = 2
         self.brightfieldChannel = 3
+        self.normalize = True
+        self.skin = None
         self.cornea = None
         self.epidermis = None
         self.dermis = None
@@ -37,12 +42,34 @@ class SkinAnalyzer(object):
     def _prepareImage(self):
         if self.image.getNSlices() > 1:
             self._doMIPProjection()
+        if self.normalize:
+            self.doNormalize()
+        
+        
+    def doNormalize(self):
+        converter = ImageConverter(self.image)
+        converter.convertToGray32()
+        channels = self.image.getNChannels()
+        for c in range(1, channels+1):
+            ip = self.image.getStack().getProcessor(c)
+            stats = ip.getStats()
+            ip.subtract(stats.mean)
+            ip.multiply(1.0 / stats.stdDev)
+        
+        
+    def postProcess(self, mask):
+        
         
         
     def _segmentSkin(self):
-        pass
+        self.image.resetRoi()
+        ip = self.image.getStack().getProcessor(self.brightfieldChannel).duplicate()
+        segmenter = SkinSegmenter(ip)
+        segmenter.run()
+        self.skin = ImagePlus("skin", segmenter.imageProcessor)       
+        self.postProcess(mask)
         
-        
+ 
     def _segmentEpidermis(self):
         pass
         
@@ -52,7 +79,25 @@ class SkinAnalyzer(object):
         
         
     def _doMIPProjection(self):
-        self.image = ZProjector(self.image, ZProjector.MAX_METHOD)
+        self.image = ZProjector.run(self.image, "max")
+        
+        
+        
+class SkinSegmenter(object):
+    
+    
+    def __init__(self, imageProcessor):
+        self.imageProcessor = imageProcessor
+        self.medianRadius = 50
+        self.mask = None
+        
+    
+    def run(self):
+        self.imageProcessor.findEdges()
+        median = RankFilters()
+        median.rank(self.imageProcessor, self.medianRadius, RankFilters.MEDIAN)
+        self.imageProcessor.setAutoThreshold(AutoThresholder.Method.Minimum, True)
+        self.mask = self.imageProcessor.createMask()
         
         
         
