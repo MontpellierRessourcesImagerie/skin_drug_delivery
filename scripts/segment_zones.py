@@ -4,5 +4,5 @@ from fr.cnrs.mri.cialib.skin import SkinAnalyzer
 
 image = IJ.getImage()
 analyzer = SkinAnalyzer(image)
-analyzer.segmentZones()
+analyzer.overlayZonesOnImage()
 analyzer.image.show()
