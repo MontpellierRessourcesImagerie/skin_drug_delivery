@@ -1,3 +1,4 @@
+from ij import IJ
 from ij import ImagePlus
 from ij import LookUpTable
 from ij.gui import Overlay
@@ -10,12 +11,13 @@ from ij.process import LUT
 from ij.plugin.filter import GaussianBlur
 from ij.plugin.filter import RankFilters
 from ij.plugin.filter import ThresholdToSelection
+
 from inra.ijpb.binary import BinaryImages
 from inra.ijpb.label import LabelImages
+from inra.ijpb.measure import IntensityMeasures
 from inra.ijpb.morphology import Reconstruction
-
-
-
+from inra.ijpb.morphology.strel import DiskStrel
+from inra.ijpb.plugins  import AnalyzeRegions
 
 
 
@@ -37,11 +39,27 @@ class SkinAnalyzer(object):
         self.nucleiChannel = 1
         self.signalChannel = 2
         self.brightfieldChannel = 3
+        self.strelRadius=50
         self.normalize = True
         self.skin = None
         self.cornea = None
         self.epidermis = None
         self.dermis = None
+        self.signal = None
+        self.statsCornea = {"Area": 0, "Mean": 0, "StdDev": 0, 
+                            "Max": 0, "Min": 0, "Median": 0, 
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}
+        self.statsEpidermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
+                            "Max": 0, "Min": 0, "Median": 0, 
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}
+        self.statsDermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
+                            "Max": 0, "Min": 0, "Median": 0, 
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}                                                
+        
+                
+    def analyzeImage(self):
+        self.overlayZonesOnImage()
+        self.measureSignal()        
         
         
     def segmentZones(self):
@@ -51,8 +69,45 @@ class SkinAnalyzer(object):
         self._segmentSkin()
         self._segmentEpidermis()
         self._computeZones()
+            
+    
+    def measureSignal(self):
+        self.subtractBackground()
+        self.measure(self.cornea, self.statsCornea)
+        self.measure(self.epidermis, self.statsEpidermis)
+        self.measure(self.dermis, self.statsDermis)
+                
+            
+    def measure(self, zone, stats):
+        features = AnalyzeRegions.Features()
+        features.setAll(False)
+        features.area = True   
+        table = AnalyzeRegions.process(zone, features);
+        stats["Area"] = table.getColumn('Area')[0]
+        measures = IntensityMeasures(self.signal, zone)
+        measures = IntensityMeasures(self.signal, zone)
+        stats["Mean"] = measures.getMean().getColumn('Mean')[0]
+        stats["StdDev"] = measures.getStdDev().getColumn('StdDev')[0]
+        stats["Max"] = measures.getMax().getColumn('Max')[0]
+        stats["Min"] = measures.getMin().getColumn('Min')[0]
+        stats["Median"] = measures.getMedian().getColumn('Median')[0]
+        stats["Mode"] = measures.getMode().getColumn('Mode')[0]
+        stats["Skewness"] = measures.getSkewness().getColumn('Skewness')[0]
+        stats["Kurtosis"] = measures.getKurtosis().getColumn('Kurtosis')[0]
         
     
+    def subtractBackground(self):
+        mask = self.skin.getProcessor()
+        mask.invert()
+        strel = DiskStrel.fromRadius(self.strelRadius)
+        mask = strel.erosion(mask)
+        maskImage = ImagePlus("background", mask)
+        measures = IntensityMeasures(self.signal, maskImage)
+        table = measures.getMean()
+        mean = table.getColumn('Mean')[0]
+        self.signal.getProcessor().subtract(mean)
+        
+             
     def overlayZonesOnImage(self):
         if not self.dermis:
             self.segmentZones()
@@ -82,7 +137,7 @@ class SkinAnalyzer(object):
         
         
     def getRoiOfMask(self, mask):
-        mask.getProcessor().setThreshold(0,125)
+        mask.getProcessor().setThreshold(125, 255)
         converter = ThresholdToSelection()
         roi = converter.convert(mask.getProcessor())
         return roi
@@ -116,11 +171,14 @@ class SkinAnalyzer(object):
     def _prepareImage(self):
         if self.image.getNSlices() > 1:
             self._doMIPProjection()
+        self.signal = ImagePlus("signal", self.image.getStack().getProcessor(self.signalChannel))
+        self.setCalibration(self.signal)
         if self.normalize:
             self.doNormalize()
         LUTTool.applyLutToChannel("blue", self.image, self.nucleiChannel)
         LUTTool.applyLutToChannel("red", self.image, self.signalChannel)
         LUTTool.applyLutToChannel("grays", self.image, self.brightfieldChannel)
+        self.image.updateAndDraw()
             
             
     def _segmentSkin(self):
@@ -128,17 +186,25 @@ class SkinAnalyzer(object):
         ip = self.image.getStack().getProcessor(self.brightfieldChannel).duplicate()
         segmenter = SkinSegmenter(ip)
         segmenter.run()
-        self.skin = ImagePlus("skin", segmenter.imageProcessor)       
+        self.skin = ImagePlus("skin", segmenter.imageProcessor)  
+        self.setCalibration(self.skin)
         self.postProcess(segmenter.mask)
         
  
+    def setCalibration(self, image):
+        cal = self.image.getCalibration()
+        cal.pixelDepth = 0
+        image.setCalibration(cal)
+        
+        
     def _segmentEpidermis(self):
         self.image.resetRoi()
         ip = self.image.getStack().getProcessor(self.nucleiChannel).duplicate()
         segmenter = EpidermisSegmenter(ip)
         segmenter.run()
         self.epidermis = ImagePlus("epidermis", segmenter.imageProcessor)
-              
+        self.setCalibration(self.epidermis)              
+        
         
     def _computeZones(self):
          mask = ImageCalculator.run(self.skin, self.epidermis, "XOR create")
@@ -152,15 +218,16 @@ class SkinAnalyzer(object):
          self.dermis.getProcessor().setThreshold (1,65535)
          self.dermis.setProcessor(self.dermis.getProcessor().createMask())
          self.dermis.setTitle("dermis")
+         self.setCalibration(self.dermis)
          self.cornea = LabelImages.keepLabels(labels, [2])
          self.cornea.getProcessor().setThreshold (2,65535)
          self.cornea.setProcessor(self.cornea.getProcessor().createMask())
          self.cornea.setTitle("cornea")
+         self.setCalibration(self.cornea)
         
         
     def _doMIPProjection(self):
         self.image = ZProjector.run(self.image, "max")
-        self.image.getStack().getProcessor(self.nucleiChannel).set
         
         
         
@@ -215,5 +282,7 @@ class LUTTool(object):
         cm = LutLoader.getLut(lut_name)
         ltable = LookUpTable(cm)
         lut = LUT(ltable.getReds(), ltable.getGreens(), ltable.getBlues())
-        image.getStack().getProcessor(channel).setLut(lut)
+        image.setChannelLut(lut, channel)
+        IJ.run(image, "Enhance Contrast", "saturated=0.35");
+        image.setDisplayMode(IJ.COMPOSITE);
         image.updateAndDraw()
