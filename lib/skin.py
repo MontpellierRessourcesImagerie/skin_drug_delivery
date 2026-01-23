@@ -19,6 +19,10 @@ from inra.ijpb.morphology import Reconstruction
 from inra.ijpb.morphology.strel import DiskStrel
 from inra.ijpb.plugins  import AnalyzeRegions
 
+from net.imglib2.img import VirtualStackAdapter
+from net.imglib2.img.display.imagej import ImageJFunctions
+from sc.fiji.labkit.ui.segmentation import SegmentationTool
+
 
 
 class SkinAnalyzer(object):
@@ -40,12 +44,15 @@ class SkinAnalyzer(object):
         self.signalChannel = 2
         self.brightfieldChannel = 3
         self.strelRadius=50
+        self.minSize = 1000
         self.normalize = True
+        self.removeHoles = True
         self.skin = None
         self.cornea = None
         self.epidermis = None
         self.dermis = None
         self.signal = None
+        self.holes = None
         self.statsCornea = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
                             "Mode": 0, "Skewness": 0, "Kurtosis": 0}
@@ -68,9 +75,10 @@ class SkinAnalyzer(object):
         self._prepareImage()
         self._segmentSkin()
         self._segmentEpidermis()
+        self._segmentNonHoles()
         self._computeZones()
+        
             
-    
     def measureSignal(self):
         self.subtractBackground()
         self.measure(self.cornea, self.statsCornea)
@@ -82,7 +90,7 @@ class SkinAnalyzer(object):
         features = AnalyzeRegions.Features()
         features.setAll(False)
         features.area = True   
-        table = AnalyzeRegions.process(zone, features);
+        table = AnalyzeRegions.process(zone, features)
         stats["Area"] = table.getColumn('Area')[0]
         measures = IntensityMeasures(self.signal, zone)
         measures = IntensityMeasures(self.signal, zone)
@@ -210,22 +218,58 @@ class SkinAnalyzer(object):
          mask = ImageCalculator.run(self.skin, self.epidermis, "XOR create")
          ip = BinaryImages.componentsLabeling(mask.getProcessor(), 4, 16)
          labels = ImagePlus("labels of zones", ip)
-         largest = LabelImages.findLargestLabel(labels) 
-         if not largest == 2:
-            print("Could not segment 3 zones")
-            return
-         self.dermis = LabelImages.keepLabels(labels, [1])
-         self.dermis.getProcessor().setThreshold (1,65535)
-         self.dermis.setProcessor(self.dermis.getProcessor().createMask())
+         self.dermis = LabelImages.keepLargestLabel(labels)
+         self.dermis.setProcessor(self.dermis.getProcessor())
          self.dermis.setTitle("dermis")
          self.setCalibration(self.dermis)
-         self.cornea = LabelImages.keepLabels(labels, [2])
-         self.cornea.getProcessor().setThreshold (2,65535)
-         self.cornea.setProcessor(self.cornea.getProcessor().createMask())
+         LabelImages.removeLargestLabel(labels)
+         self.cornea = LabelImages.keepLargestLabel(labels)
          self.cornea.setTitle("cornea")
          self.setCalibration(self.cornea)
+         features = AnalyzeRegions.Features()
+         features.setAll(False)
+         features.centroid = True   
+         dermisY = AnalyzeRegions.process(self.dermis, features).getColumn("Centroid.Y")[0]
+         corneaY = AnalyzeRegions.process(self.cornea, features).getColumn("Centroid.Y")[0]
+         if corneaY < dermisY:
+            tmp = self.cornea
+            self.cornea = self.dermis
+            self.dermis = tmp
+         if self.removeHoles:
+            self.removeHolesInZones()
+         
+        
+    def removeHolesInZones(self):
+        self.cornea = self.removeHolesIn(self.cornea)
+        self.epidermis = self.removeHolesIn(self.epidermis)
         
         
+    def removeHolesIn(self, image):
+        result = ImageCalculator.run(image, self.holes, "AND create")
+        return result
+        
+        
+    def _segmentNonHoles(self):
+         self.image.resetRoi()
+         ip = self.image.getStack().getProcessor(self.brightfieldChannel).duplicate()
+         image = ImagePlus("holes", ip)
+         path = self.getClassifierPath()
+         segmenter = SegmentationTool(None)
+         segmenter.setUseGpu(False)
+         segmenter.openModel(path)
+         self.holes = segmenter.segment(VirtualStackAdapter.wrap(image))
+         self.holes = ImagePlus("holes", ImageJFunctions.wrap(self.holes, "").getProcessor().duplicate())
+         self.holes.getProcessor().setThreshold (0,0)
+         self.holes.setProcessor(self.holes.getProcessor().createMask())      
+         
+         
+    @classmethod
+    def getClassifierPath(cls):
+        path = IJ.addSeparator(IJ.getDirectory("plugins")) +  "skin_drug_delivery"
+        path = IJ.addSeparator(path) + "holes.classifier"
+        return path
+    
+    
     def _doMIPProjection(self):
         self.image = ZProjector.run(self.image, "max")
         
