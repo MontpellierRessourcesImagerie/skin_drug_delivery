@@ -1,7 +1,12 @@
+import jarray
+
+from fiji.process3d import EDT
+
 from ij import IJ
 from ij import ImagePlus
 from ij import LookUpTable
 from ij.gui import Overlay
+from ij.measure import ResultsTable
 from ij.plugin import ImageCalculator
 from ij.plugin import LutLoader
 from ij.plugin import ZProjector
@@ -11,6 +16,7 @@ from ij.process import LUT
 from ij.plugin.filter import GaussianBlur
 from ij.plugin.filter import RankFilters
 from ij.plugin.filter import ThresholdToSelection
+
 
 from inra.ijpb.binary import BinaryImages
 from inra.ijpb.label import LabelImages
@@ -40,11 +46,13 @@ class SkinAnalyzer(object):
                                        be measured.
         """
         self.image = image
+        self.path = image.getOriginalFileInfo().getFilePath()
         self.nucleiChannel = 1
         self.signalChannel = 2
         self.brightfieldChannel = 3
         self.strelRadius=50
         self.minSize = 1000
+        self.delta = 1
         self.normalize = True
         self.removeHoles = True
         self.skin = None
@@ -61,12 +69,16 @@ class SkinAnalyzer(object):
                             "Mode": 0, "Skewness": 0, "Kurtosis": 0}
         self.statsDermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
-                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}                                                
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}          
+        self.signalPerDepthCorneaTable = None
+        self.signalPerDepthEpidermisTable = None
+        self.signalPerDepthDermisTable = None
         
-                
+                                
     def analyzeImage(self):
         self.overlayZonesOnImage()
         self.measureSignal()        
+        self.measureSignalPerDepth()
         
         
     def segmentZones(self):
@@ -92,7 +104,6 @@ class SkinAnalyzer(object):
         features.area = True   
         table = AnalyzeRegions.process(zone, features)
         stats["Area"] = table.getColumn('Area')[0]
-        measures = IntensityMeasures(self.signal, zone)
         measures = IntensityMeasures(self.signal, zone)
         stats["Mean"] = measures.getMean().getColumn('Mean')[0]
         stats["StdDev"] = measures.getStdDev().getColumn('StdDev')[0]
@@ -273,6 +284,102 @@ class SkinAnalyzer(object):
     def _doMIPProjection(self):
         self.image = ZProjector.run(self.image, "max")
         
+        
+    def getTable(self):
+        table = ResultsTable()
+        self.addToTable(table)
+        return table
+        
+        
+    def addToTable(self, aTable):
+        self.addZoneToTable(self.statsCornea, aTable, "cornea")
+        self.addZoneToTable(self.statsEpidermis, aTable, "epidermis")
+        self.addZoneToTable(self.statsDermis, aTable, "dermis")
+        
+        
+    def addZoneToTable(self, zone, aTable, nameOfZone):
+        aTable.addRow()
+        rowIndex = aTable.size()-1
+        aTable.setValue("Image", rowIndex, self.image.getTitle())
+        aTable.setValue("Zone", rowIndex, nameOfZone)
+        aTable.setValue("Area", rowIndex, zone["Area"])
+        aTable.setValue("Mean", rowIndex, zone["Mean"])
+        aTable.setValue("StdDev", rowIndex, zone["StdDev"])
+        aTable.setValue("Max", rowIndex, zone["Max"])
+        aTable.setValue("Min", rowIndex, zone["Min"])
+        aTable.setValue("Median", rowIndex, zone["Median"])
+        aTable.setValue("Mode", rowIndex, zone["Mode"])
+        aTable.setValue("Skewness", rowIndex, zone["Skewness"])
+        aTable.setValue("Kurtosis", rowIndex, zone["Kurtosis"])
+        aTable.setValue("Path", rowIndex, self.path)
+        
+        
+    def measureSignalPerDepth(self):
+        skin = self.skin            
+        edt = EDT()
+        invertedSkinIP = skin.getProcessor().duplicate()
+        invertedSkinIP.invert()
+        invertedSkin = ImagePlus("inverted skin", invertedSkinIP)
+        edtImage = edt.compute(invertedSkin.getStack())
+        self.signalPerDepthCorneaTable = self.measureSignalPerDepthForZone(
+                                                self.getCorneaRoi(), 
+                                                ImagePlus("edt_cornea", edtImage.getProcessor().dupplicatre()))
+        invertedSkin.setRoi(self.getCorneaRoi())
+        IJ.run(invertedSkin, "Clear", "")
+        invertedSkin.resetRoi()
+        edtImage = edt.compute(invertedSkin.getStack())
+        self.signalPerDepthEpidermisTable = self.measureSignalPerDepthForZone(
+                                                self.getEpidermisRoi(), 
+                                                ImagePlus("edt_cornea", edtImage.getProcessor().duplicate()))
+        #self.measureSignalPerDepthForZone(self.getDermisRoi(), edtImage, self.signalPerDepthDermisTable)
+        
+        
+    def measureSignalPerDepthForZone(self, zoneRoi, edt):
+        edt.show()
+        IJ.setBackgroundColor(0, 0, 0)
+        IJ.setForegroundColor(255, 255, 255)
+        edt.setRoi(zoneRoi)
+        IJ.run(edt, "Clear Outside", "")
+        edt.resetRoi()
+        edt.updateAndDraw()
+        ip = edt.getProcessor()
+        stats = ip.getStats()
+        area = []
+        mean = []
+        stdDev = []
+        depth = []
+        for t in range(1, int(round(stats.max))-self.delta):
+            depth.append(self.signal.getCalibration().getX(t))
+            ip.setThreshold(t,t+self.delta)
+            mask = ip.createMask()
+            features = AnalyzeRegions.Features()
+            features.setAll(False)
+            features.area = True   
+            table = AnalyzeRegions.process(ImagePlus("mask", mask), features)
+            area.append(table.getColumn('Area')[0])
+            measures = IntensityMeasures(self.signal, ImagePlus("mask", mask))
+            mean.append(measures.getMean().getColumn('Mean')[0])
+            stdDev.append(measures.getStdDev().getColumn('StdDev')[0])        
+        table.setValues("Depth", jarray.array(depth, "d"))
+        table.updateResults()
+        table.setValues("Mean", jarray.array(mean, "d"))
+        table.updateResults()
+        table.setValues("StdDev", jarray.array(stdDev, "d"))
+        table.updateResults()
+        table.setValues("Area", jarray.array(area, "d"))
+        table.updateResults()
+        print("depth", depth)
+        return table
+        '''for a, m, s, d in zip(area, mean, stdDev, depth):
+            table.addRow()
+            rowIndex = table.size() - 1
+            print("data", rowIndex, d, m, s, a)
+            table.setValue("Depth", rowIndex, d)
+            table.setValue("Mean", rowIndex, m)
+            table.setValue("StdDev", rowIndex, s)
+            table.setValue("Area", rowIndex, a)
+            table.updateResults()
+        '''
         
         
 class SkinSegmenter(object):
