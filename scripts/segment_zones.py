@@ -13,13 +13,12 @@ else:
     
 image = IJ.getImage()
 analyzer = SkinAnalyzer(image)
-analyzer.removeHoles = False
+analyzer.removeHoles = True
 analyzer.analyzeImage()
 analyzer.image.show()
-analyzer.signal.show()
-analyzer.skin.show()
 analyzer.addToTable(table)
 table.show(tableTitle)
 analyzer.signalPerDepthCorneaTable.show("cornea - signal per depth")
-# analyzer.signalPerDepthEpidermisTable.show("epidermis - signal per depth")
-# analyzer.signalPerDepthDermisTable.show("dermis - signal per depth")
+analyzer.signalPerDepthEpidermisTable.show("epidermis - signal per depth")
+analyzer.signalPerDepthDermisTable.show("dermis - signal per depth")
+analyzer.plot.show()

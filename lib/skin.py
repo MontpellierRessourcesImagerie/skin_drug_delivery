@@ -6,6 +6,7 @@ from ij import IJ
 from ij import ImagePlus
 from ij import LookUpTable
 from ij.gui import Overlay
+from ij.gui import Plot
 from ij.measure import ResultsTable
 from ij.plugin import ImageCalculator
 from ij.plugin import LutLoader
@@ -47,14 +48,18 @@ class SkinAnalyzer(object):
         """
         self.image = image
         self.path = image.getOriginalFileInfo().getFilePath()
+        
         self.nucleiChannel = 1
         self.signalChannel = 2
         self.brightfieldChannel = 3
         self.strelRadius=50
-        self.minSize = 1000
         self.delta = 1
         self.normalize = True
         self.removeHoles = True
+        self.skinMedianRadius = 50
+        self.epidermisSigma = 32
+        self.epidermisFillHoles = True
+        
         self.skin = None
         self.cornea = None
         self.epidermis = None
@@ -73,12 +78,14 @@ class SkinAnalyzer(object):
         self.signalPerDepthCorneaTable = None
         self.signalPerDepthEpidermisTable = None
         self.signalPerDepthDermisTable = None
+        self.plot = None
         
                                 
     def analyzeImage(self):
         self.overlayZonesOnImage()
         self.measureSignal()        
-        self.measureSignalPerDepth()
+        self.measureSignalPerDepth()    
+        self.createCombinedPlot()
         
         
     def segmentZones(self):
@@ -204,6 +211,7 @@ class SkinAnalyzer(object):
         self.image.resetRoi()
         ip = self.image.getStack().getProcessor(self.brightfieldChannel).duplicate()
         segmenter = SkinSegmenter(ip)
+        segmenter.medianRadius = self.skinMedianRadius
         segmenter.run()
         self.skin = ImagePlus("skin", segmenter.imageProcessor)  
         self.setCalibration(self.skin)
@@ -220,6 +228,8 @@ class SkinAnalyzer(object):
         self.image.resetRoi()
         ip = self.image.getStack().getProcessor(self.nucleiChannel).duplicate()
         segmenter = EpidermisSegmenter(ip)
+        segmenter.sigma = self.epidermisSigma
+        segmenter.fillHoles = self.epidermisFillHoles
         segmenter.run()
         self.epidermis = ImagePlus("epidermis", segmenter.imageProcessor)
         self.setCalibration(self.epidermis)              
@@ -323,19 +333,24 @@ class SkinAnalyzer(object):
         edtImage = edt.compute(invertedSkin.getStack())
         self.signalPerDepthCorneaTable = self.measureSignalPerDepthForZone(
                                                 self.getCorneaRoi(), 
-                                                ImagePlus("edt_cornea", edtImage.getProcessor().dupplicatre()))
+                                                ImagePlus("edt_cornea", edtImage.getProcessor().duplicate()))
         invertedSkin.setRoi(self.getCorneaRoi())
         IJ.run(invertedSkin, "Clear", "")
         invertedSkin.resetRoi()
         edtImage = edt.compute(invertedSkin.getStack())
         self.signalPerDepthEpidermisTable = self.measureSignalPerDepthForZone(
                                                 self.getEpidermisRoi(), 
-                                                ImagePlus("edt_cornea", edtImage.getProcessor().duplicate()))
-        #self.measureSignalPerDepthForZone(self.getDermisRoi(), edtImage, self.signalPerDepthDermisTable)
+                                                ImagePlus("edt_epidermis", edtImage.getProcessor().duplicate()))
+        invertedSkin.setRoi(self.getEpidermisRoi())
+        IJ.run(invertedSkin, "Clear", "")
+        invertedSkin.resetRoi()
+        edtImage = edt.compute(invertedSkin.getStack())                                                        
+        self.signalPerDepthDermisTable = self.measureSignalPerDepthForZone(
+                                                self.getDermisRoi(), 
+                                                ImagePlus("edt_dermis", edtImage.getProcessor().duplicate()))
         
         
     def measureSignalPerDepthForZone(self, zoneRoi, edt):
-        edt.show()
         IJ.setBackgroundColor(0, 0, 0)
         IJ.setForegroundColor(255, 255, 255)
         edt.setRoi(zoneRoi)
@@ -359,7 +374,8 @@ class SkinAnalyzer(object):
             area.append(table.getColumn('Area')[0])
             measures = IntensityMeasures(self.signal, ImagePlus("mask", mask))
             mean.append(measures.getMean().getColumn('Mean')[0])
-            stdDev.append(measures.getStdDev().getColumn('StdDev')[0])        
+            stdDev.append(measures.getStdDev().getColumn('StdDev')[0])      
+        table = ResultsTable()
         table.setValues("Depth", jarray.array(depth, "d"))
         table.updateResults()
         table.setValues("Mean", jarray.array(mean, "d"))
@@ -368,20 +384,31 @@ class SkinAnalyzer(object):
         table.updateResults()
         table.setValues("Area", jarray.array(area, "d"))
         table.updateResults()
-        print("depth", depth)
         return table
-        '''for a, m, s, d in zip(area, mean, stdDev, depth):
-            table.addRow()
-            rowIndex = table.size() - 1
-            print("data", rowIndex, d, m, s, a)
-            table.setValue("Depth", rowIndex, d)
-            table.setValue("Mean", rowIndex, m)
-            table.setValue("StdDev", rowIndex, s)
-            table.setValue("Area", rowIndex, a)
-            table.updateResults()
-        '''
+
         
-        
+    def createCombinedPlot(self):
+        depthCornea = self.signalPerDepthCorneaTable.getColumn("Depth")
+        meanCornea = self.signalPerDepthCorneaTable.getColumn("Mean")
+        depthEpidermis = self.signalPerDepthEpidermisTable.getColumn("Depth")
+        meanEpidermis = self.signalPerDepthEpidermisTable.getColumn("Mean")
+        depthDermis = self.signalPerDepthDermisTable.getColumn("Depth")
+        meanDermis = self.signalPerDepthDermisTable.getColumn("Mean")
+        depthEpidermis = [depth+depthCornea[-1] for depth in depthEpidermis]
+        depthDermis = [depth+depthEpidermis[-1] for depth in depthDermis]
+        depthLabel = "depth[micron]"
+        self.plot = Plot("Mean Nanoformulation per Depth", depthLabel, "Mean Intensity")
+        self.plot.setLineWidth (2)
+        self.plot.setColor("red")
+        self.plot.add("line", depthCornea, meanCornea)
+        self.plot.setColor("blue")
+        self.plot.add("line", depthEpidermis, meanEpidermis) 
+        self.plot.setColor("black")
+        self.plot.add("line", depthDermis, meanDermis)         
+        self.plot.setLimitsToFit(True)
+
+
+
 class SkinSegmenter(object):
     
     
@@ -406,8 +433,8 @@ class EpidermisSegmenter(object):
     def __init__(self, imageProcessor):
         self.imageProcessor = imageProcessor
         self.sigma = 32
-        self.mask = None
         self.fillHoles = True
+        self.mask = None
         
         
     def run(self):
