@@ -6,7 +6,7 @@ getDimensions(width, height, channels, slices, frames);
 
 run("32-bit");
 
-for (i=0; i<slices; i++) {
+for (i=0; i<channels; i++) {
     Stack.setChannel(i+1);
     mean = getValue("Mean");
     stdDev = getValue("StdDev");

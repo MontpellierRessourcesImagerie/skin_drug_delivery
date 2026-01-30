@@ -1,4 +1,5 @@
 from ij import IJ
+from ij import Prefs
 from ij import WindowManager
 from ij.measure import ResultsTable
 from fr.cnrs.mri.cialib.skin import SkinAnalyzer
@@ -6,15 +7,22 @@ from autooptions import Options, OptionsDialog
 
 
 def main():
-    
     options = getOptions()
     dialog = OptionsDialog(options)
+    
+    optionsOnly = Prefs.get("mri.options.only", "false")
+    optionsOnly = optionsOnly=='true'
     dialog.showDialog()
     if dialog.wasCanceled():
         return
     dialog.transferValues()
-    print(options.items)
-    return
+    if optionsOnly:
+        options.save()
+        return
+    
+    image = IJ.getImage()
+    IJ.log("Running analyze skin drug delivery on " + image.getTitle())
+    IJ.log(options.asString())
     
     tableTitle = "Nanoformulation Density"
     table = WindowManager.getWindow(tableTitle)
@@ -23,9 +31,7 @@ def main():
     else:    
         table = ResultsTable()
         
-    image = IJ.getImage()
-    analyzer = SkinAnalyzer(image)
-    analyzer.removeHoles = False
+    analyzer = SkinAnalyzer(image, options)    
     analyzer.analyzeImage()
     analyzer.image.show()
     analyzer.addToTable(table)
@@ -37,7 +43,7 @@ def main():
    
    
 def getOptions():
-    options = Options("skin drug delivery", "analyze image")
+    options = Options("skin drug delivery", "Analyze Image")
     options.addInt("nuclei channel", value=1)
     options.addInt("signal channel", value=2)
     options.addInt("brightfield channel", value=3)

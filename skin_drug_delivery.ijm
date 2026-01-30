@@ -7,8 +7,6 @@
   **
 */
 
-var SUFFIX = "czi";
-
 var _URL = "https://github.com/MontpellierRessourcesImagerie/skin_drug_delivery?tab=readme-ov-file#skin_drug_delivery";
 
 
@@ -16,6 +14,126 @@ macro "Skin Drug Delivery Analysis Tools Help Action Tool - C212D0dD0eD0fD1eD1fD
      run('URL...', 'url='+_URL);
 }
 
-macro "Analyze Image (f5) Action Tool - C000T4b12a" {
+
+macro "Analyze Image (f5) Action Tool - C000T4b12i" {
     analyzeImage();
+}
+
+
+macro "Analyze Image (f5) Action Tool Options" {
+    showAnalyzeImageOptions();
+}
+
+
+macro "Analyze Image [f5]" {
+    analyzeImage();
+}
+
+
+macro "Batch Analyze Images (f6) Action Tool - C000T4b12b" {
+    batchAnalyzeImages();
+}
+
+
+macro "Batch Analyze Images (f6) Action Tool Options" {
+    showBatchAnalyzeImagesOptions();
+}
+
+
+macro "Batch Analyze Images [f6]" {
+    batchAnalyzeImages();
+}
+
+
+function analyzeImage() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    params = readOptionsAnalyzeImage();
+    run("analyze skin drug delivery", params);   
+}
+
+
+function batchAnalyzeImages() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    params = readOptionsBatchAnalyzeImages();
+    run("batch analyze skin drug delivery", params); 
+}
+
+
+function showAnalyzeImageOptions() {
+    call("ij.Prefs.set", "mri.options.only", "true");
+    run("analyze skin drug delivery");
+    call("ij.Prefs.set", "mri.options.only", "false");   
+}
+
+
+function showBatchAnalyzeImagesOptions() {
+    call("ij.Prefs.set", "mri.options.only", "true");
+    run("batch analyze skin drug delivery");
+    call("ij.Prefs.set", "mri.options.only", "false");   
+}
+
+
+function getOptionsPathAnalyzeImage() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/analyze_image_options.json";
+    return optionsPath;
+}
+
+
+function getOptionsPathBatchAnalyzeImages() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/batch_analyze_images_options.json";
+    return optionsPath;
+}
+
+
+function readOptionsAnalyzeImage() {
+    path = getOptionsPathAnalyzeImage();
+    options = readOptions(path);
+    return options;
+}
+
+
+function readOptionsBatchAnalyzeImages() {
+    path = getOptionsPathBatchAnalyzeImages();
+    options = readOptions(path);
+    return options;
+}
+
+
+function readOptions(path) {
+    text = File.openAsString(path);
+    parts = split(text, '}');
+    options = ""
+    booleanOptions = ""
+    for (i = 0; i < parts.length; i++) {    
+        line = parts[i];
+        if (line.length==0) continue;
+        line = replace(line, '{', "");
+        line = replace(line, '"', '');
+        name = split(line, ":");
+        name = replace(name[0], ", ", "");
+        name = String.trim(name);
+        if (name == "") continue;
+        nameParts = split(name, " ");
+        option = nameParts[0]; 
+        params = substring(line, indexOf(line, ":"));
+        params = split(params, ",");
+        type = split(params[1], ':');
+        type = String.trim(type[1]);
+        transient = split(params[2], ':');
+        transient = String.trim(transient[1]);
+        if (transient=='true') continue;
+        value = split(params[5], ':');
+        value = String.trim(value[1]);
+        if (type=='bool' && value=='true') {
+            booleanOptions = booleanOptions + " " + option;
+        }
+        if (type=='int' || type=='float' || type=='str') {
+            options = options + " " + option + "=" + value;
+        }
+    }
+    options = options + booleanOptions;
+    options = String.trim(options);
+    return options;
 }

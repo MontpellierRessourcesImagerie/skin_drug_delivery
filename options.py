@@ -1,7 +1,9 @@
-import os
 import appdirs
 import json
+import os
+from collections import OrderedDict
 from copy import copy
+
 
 
 
@@ -11,13 +13,13 @@ class Options:
     def __init__(self, applicationName, optionsName):
         self.optionsName = optionsName
         self.applicationName = applicationName
-        self.items = {}
+        self.items = OrderedDict()
         self.defaultItems = None
         appName = self.applicationName.replace(' ', '_')
         self.dataFolder = appdirs.user_data_dir(appName)
         if not os.path.exists(self.dataFolder):
             os.makedirs(self.dataFolder)
-        optName = self.optionsName.replace(' ', '_')
+        optName = self.optionsName.replace(' ', '_').lower()
         self.optionsPath = os.path.join(self.dataFolder, optName + "_options.json")
 
 
@@ -131,6 +133,21 @@ class Options:
                             'callback': callback}
 
 
+    def asString(self):
+        items = [(name, item, item['position']) for name, item in self.items.items()]
+        items.sort(key=lambda x: x[2])
+        options = ""
+        booleanOptions = ""
+        for name, item, _ in items:
+            if item['type'] in ['int', 'float', 'str']:
+                options = options + " " + name.split()[0] + "=" + str(item['value'])
+            if item['type'] == 'bool' and item['value']==True:
+                booleanOptions = booleanOptions + " " + name.split()[0]
+        options = options + booleanOptions
+        options = options.strip()
+        return options
+        
+        
     def _getPosition(self, position):
         if not position:
             position = len(self.items.keys())

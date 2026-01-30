@@ -38,7 +38,7 @@ class SkinAnalyzer(object):
     """
     
     
-    def __init__(self, image):
+    def __init__(self, image, options=None):
         """ Create a new skin-segmenter for the given image.
             
             Parameters:
@@ -79,6 +79,8 @@ class SkinAnalyzer(object):
         self.signalPerDepthEpidermisTable = None
         self.signalPerDepthDermisTable = None
         self.plot = None
+        if options:
+            self.setOptions(options)
         
                                 
     def analyzeImage(self):
@@ -404,11 +406,25 @@ class SkinAnalyzer(object):
         self.plot.setColor("blue")
         self.plot.add("line", depthEpidermis, meanEpidermis) 
         self.plot.setColor("black")
-        self.plot.add("line", depthDermis, meanDermis)         
+        self.plot.add("line", depthDermis, meanDermis)     
+        self.plot.addLegend ("stratum corneum\nepidermis\ndermis")
         self.plot.setLimitsToFit(True)
 
 
-
+    def setOptions(self, options):
+        self.nucleiChannel = options.value("nuclei channel")
+        self.signalChannel = options.value("signal channel")
+        self.brightfieldChannel = options.value("brightfield channel")
+        self.strelRadius = options.value("erosion radius")
+        self.delta = options.value("delta")
+        self.skinMedianRadius = options.value("median radius skin")
+        self.epidermisSigma = options.value("sigma epidermis")
+        self.normalize = options.value("normalize")
+        self.epidermisFillHoles = options.value("fill holes epidermis")
+        self.removeHoles = options.value("remove holes")
+        
+       
+       
 class SkinSegmenter(object):
     
     
