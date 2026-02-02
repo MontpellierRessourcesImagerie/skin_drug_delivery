@@ -36,7 +36,7 @@ def main():
     analyzer.image.show()
     analyzer.addToTable(table)
     table.show(tableTitle)
-    analyzer.signalPerDepthCorneaTable.show("cornea - signal per depth")
+    analyzer.signalPerDepthCorneumTable.show("corneum - signal per depth")
     analyzer.signalPerDepthEpidermisTable.show("epidermis - signal per depth")
     analyzer.signalPerDepthDermisTable.show("dermis - signal per depth")
     analyzer.plot.show()

@@ -33,7 +33,7 @@ from sc.fiji.labkit.ui.segmentation import SegmentationTool
 
 
 class SkinAnalyzer(object):
-    """ Segment 3 zones in the skin, the cornea, the epidermis and the dermis and measure the intensity of
+    """ Segment 3 zones in the skin, the stratum corneum, the epidermis and the dermis and measure the intensity of
         the signal in the 3 zones.
     """
     
@@ -61,12 +61,12 @@ class SkinAnalyzer(object):
         self.epidermisFillHoles = True
         
         self.skin = None
-        self.cornea = None
+        self.corneum = None
         self.epidermis = None
         self.dermis = None
         self.signal = None
         self.holes = None
-        self.statsCornea = {"Area": 0, "Mean": 0, "StdDev": 0, 
+        self.statsCorneum = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
                             "Mode": 0, "Skewness": 0, "Kurtosis": 0}
         self.statsEpidermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
@@ -75,7 +75,7 @@ class SkinAnalyzer(object):
         self.statsDermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
                             "Mode": 0, "Skewness": 0, "Kurtosis": 0}          
-        self.signalPerDepthCorneaTable = None
+        self.signalPerDepthCorneumTable = None
         self.signalPerDepthEpidermisTable = None
         self.signalPerDepthDermisTable = None
         self.plot = None
@@ -91,7 +91,7 @@ class SkinAnalyzer(object):
         
         
     def segmentZones(self):
-        """ Create a label image for each of the zones (cornea, epidermis and dermis).
+        """ Create a label image for each of the zones (corneum, epidermis and dermis).
         """
         self._prepareImage()
         self._segmentSkin()
@@ -102,7 +102,7 @@ class SkinAnalyzer(object):
             
     def measureSignal(self):
         self.subtractBackground()
-        self.measure(self.cornea, self.statsCornea)
+        self.measure(self.corneum, self.statsCorneum)
         self.measure(self.epidermis, self.statsEpidermis)
         self.measure(self.dermis, self.statsDermis)
                 
@@ -142,7 +142,7 @@ class SkinAnalyzer(object):
         overlay = Overlay()
         overlay.add(self.getDermisRoi())
         overlay.add(self.getEpidermisRoi())
-        overlay.add(self.getCorneaRoi())
+        overlay.add(self.getCorneumRoi())
         self.image.setOverlay(overlay)
         
         
@@ -158,9 +158,9 @@ class SkinAnalyzer(object):
         return roi 
         
     
-    def getCorneaRoi(self):
-        roi = self.getRoiOfMask(self.cornea)
-        roi.setName("cornea")
+    def getCorneumRoi(self):
+        roi = self.getRoiOfMask(self.corneum)
+        roi.setName("corneum")
         return roi
         
         
@@ -246,24 +246,24 @@ class SkinAnalyzer(object):
          self.dermis.setTitle("dermis")
          self.setCalibration(self.dermis)
          LabelImages.removeLargestLabel(labels)
-         self.cornea = LabelImages.keepLargestLabel(labels)
-         self.cornea.setTitle("cornea")
-         self.setCalibration(self.cornea)
+         self.corneum = LabelImages.keepLargestLabel(labels)
+         self.corneum.setTitle("corneum")
+         self.setCalibration(self.corneum)
          features = AnalyzeRegions.Features()
          features.setAll(False)
          features.centroid = True   
          dermisY = AnalyzeRegions.process(self.dermis, features).getColumn("Centroid.Y")[0]
-         corneaY = AnalyzeRegions.process(self.cornea, features).getColumn("Centroid.Y")[0]
-         if corneaY < dermisY:
-            tmp = self.cornea
-            self.cornea = self.dermis
+         corneumY = AnalyzeRegions.process(self.corneum, features).getColumn("Centroid.Y")[0]
+         if corneumY < dermisY:
+            tmp = self.corneum
+            self.corneum = self.dermis
             self.dermis = tmp
          if self.removeHoles:
             self.removeHolesInZones()
          
         
     def removeHolesInZones(self):
-        self.cornea = self.removeHolesIn(self.cornea)
+        self.corneum = self.removeHolesIn(self.corneum)
         self.epidermis = self.removeHolesIn(self.epidermis)
         
         
@@ -304,7 +304,7 @@ class SkinAnalyzer(object):
         
         
     def addToTable(self, aTable):
-        self.addZoneToTable(self.statsCornea, aTable, "cornea")
+        self.addZoneToTable(self.statsCorneum, aTable, "corneum")
         self.addZoneToTable(self.statsEpidermis, aTable, "epidermis")
         self.addZoneToTable(self.statsDermis, aTable, "dermis")
         
@@ -333,10 +333,10 @@ class SkinAnalyzer(object):
         invertedSkinIP.invert()
         invertedSkin = ImagePlus("inverted skin", invertedSkinIP)
         edtImage = edt.compute(invertedSkin.getStack())
-        self.signalPerDepthCorneaTable = self.measureSignalPerDepthForZone(
-                                                self.getCorneaRoi(), 
-                                                ImagePlus("edt_cornea", edtImage.getProcessor().duplicate()))
-        invertedSkin.setRoi(self.getCorneaRoi())
+        self.signalPerDepthCorneumTable = self.measureSignalPerDepthForZone(
+                                                self.getCorneumRoi(), 
+                                                ImagePlus("edt_corneum", edtImage.getProcessor().duplicate()))
+        invertedSkin.setRoi(self.getCorneumRoi())
         IJ.run(invertedSkin, "Clear", "")
         invertedSkin.resetRoi()
         edtImage = edt.compute(invertedSkin.getStack())
@@ -390,19 +390,19 @@ class SkinAnalyzer(object):
 
         
     def createCombinedPlot(self):
-        depthCornea = self.signalPerDepthCorneaTable.getColumn("Depth")
-        meanCornea = self.signalPerDepthCorneaTable.getColumn("Mean")
+        depthCorneum = self.signalPerDepthCorneumTable.getColumn("Depth")
+        meanCorneum = self.signalPerDepthCorneumTable.getColumn("Mean")
         depthEpidermis = self.signalPerDepthEpidermisTable.getColumn("Depth")
         meanEpidermis = self.signalPerDepthEpidermisTable.getColumn("Mean")
         depthDermis = self.signalPerDepthDermisTable.getColumn("Depth")
         meanDermis = self.signalPerDepthDermisTable.getColumn("Mean")
-        depthEpidermis = [depth+depthCornea[-1] for depth in depthEpidermis]
+        depthEpidermis = [depth+depthCorneum[-1] for depth in depthEpidermis]
         depthDermis = [depth+depthEpidermis[-1] for depth in depthDermis]
         depthLabel = "depth[micron]"
         self.plot = Plot("Mean Nanoformulation per Depth", depthLabel, "Mean Intensity")
         self.plot.setLineWidth (2)
         self.plot.setColor("red")
-        self.plot.add("line", depthCornea, meanCornea)
+        self.plot.add("line", depthCorneum, meanCorneum)
         self.plot.setColor("blue")
         self.plot.add("line", depthEpidermis, meanEpidermis) 
         self.plot.setColor("black")
