@@ -8,6 +8,7 @@ from ij import LookUpTable
 from ij.gui import Overlay
 from ij.gui import Plot
 from ij.measure import ResultsTable
+from ij.measure import CurveFitter
 from ij.plugin import ImageCalculator
 from ij.plugin import LutLoader
 from ij.plugin import ZProjector
@@ -58,6 +59,8 @@ class SkinAnalyzer(object):
         self.removeHoles = True
         self.skinMedianRadius = 50
         self.epidermisSigma = 32
+        self.threshold = 650
+        self.function="Gamma Variate"
         self.epidermisFillHoles = True
         
         self.skin = None
@@ -68,13 +71,19 @@ class SkinAnalyzer(object):
         self.holes = None
         self.statsCorneum = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
-                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0, 
+                            "Depth": 0, "%Depth": 0, "Max. Depth": 0,
+                            "Threshold": 0}
         self.statsEpidermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
-                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0,
+                            "Depth": 0, "%Depth": 0, "Max. Depth": 0,
+                            "Threshold": 0}
         self.statsDermis = {"Area": 0, "Mean": 0, "StdDev": 0, 
                             "Max": 0, "Min": 0, "Median": 0, 
-                            "Mode": 0, "Skewness": 0, "Kurtosis": 0}          
+                            "Mode": 0, "Skewness": 0, "Kurtosis": 0,
+                            "Depth": 0, "%Depth": 0, "Max. Depth": 0,
+                            "Threshold": 0}          
         self.signalPerDepthCorneumTable = None
         self.signalPerDepthEpidermisTable = None
         self.signalPerDepthDermisTable = None
@@ -85,8 +94,9 @@ class SkinAnalyzer(object):
                                 
     def analyzeImage(self):
         self.overlayZonesOnImage()
-        self.measureSignal()        
+        self.subtractBackground()
         self.measureSignalPerDepth()    
+        self.measureSignal()        
         self.createCombinedPlot()
         
         
@@ -101,13 +111,12 @@ class SkinAnalyzer(object):
         
             
     def measureSignal(self):
-        self.subtractBackground()
-        self.measure(self.corneum, self.statsCorneum)
-        self.measure(self.epidermis, self.statsEpidermis)
-        self.measure(self.dermis, self.statsDermis)
+        self.measure(self.corneum, self.statsCorneum, self.signalPerDepthCorneumTable)
+        self.measure(self.epidermis, self.statsEpidermis, self.signalPerDepthEpidermisTable)
+        self.measure(self.dermis, self.statsDermis, self.signalPerDepthDermisTable)
                 
             
-    def measure(self, zone, stats):
+    def measure(self, zone, stats, perDepthtable):
         features = AnalyzeRegions.Features()
         features.setAll(False)
         features.area = True   
@@ -122,8 +131,34 @@ class SkinAnalyzer(object):
         stats["Mode"] = measures.getMode().getColumn('Mode')[0]
         stats["Skewness"] = measures.getSkewness().getColumn('Skewness')[0]
         stats["Kurtosis"] = measures.getKurtosis().getColumn('Kurtosis')[0]
+        self.measurePenetrationDepths(stats, perDepthtable)
         
-    
+        
+    def measurePenetrationDepths(self, stats, table):
+        depths = table.getColumn("Depth")
+        means = table.getColumn("Mean")
+        fitter = CurveFitter(depths, means)
+        function = CurveFitter.GAMMA_VARIATE
+        if self.function == "Rodbard":
+            function = CurveFitter.RODBARD
+        fitter.doFit(function)
+        noLimit = True
+        noEntry = False
+        first = True
+        for depth in depths:
+            if fitter.f(depth) <= self.threshold:
+                noLimit = False
+                if first:
+                    depth = 0
+                    noEntry = True
+                break
+            first = False
+        stats["Depth"] = depth
+        stats["%Depth"] = (depth * 100) / depths[-1]
+        stats["Max. Depth"] = depths[-1]
+        stats["Threshold"] = self.threshold
+        
+        
     def subtractBackground(self):
         mask = self.skin.getProcessor()
         mask.invert()
@@ -323,6 +358,10 @@ class SkinAnalyzer(object):
         aTable.setValue("Mode", rowIndex, zone["Mode"])
         aTable.setValue("Skewness", rowIndex, zone["Skewness"])
         aTable.setValue("Kurtosis", rowIndex, zone["Kurtosis"])
+        aTable.setValue("Depth", rowIndex, zone["Depth"])
+        aTable.setValue("%Depth", rowIndex, zone["%Depth"])
+        aTable.setValue("Max. Depth", rowIndex, zone["Max. Depth"])
+        aTable.setValue("Threshold", rowIndex, zone["Threshold"])
         aTable.setValue("Path", rowIndex, self.path)
         
         
@@ -422,6 +461,8 @@ class SkinAnalyzer(object):
         self.normalize = options.value("normalize")
         self.epidermisFillHoles = options.value("fill holes epidermis")
         self.removeHoles = options.value("remove holes")
+        self.threshold = options.value("threshold")
+        self.function = options.value("function")
         
        
        

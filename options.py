@@ -100,6 +100,7 @@ class Options:
 
 
     def addChoice(self, name="footprint", value=None, choices=None, transient=False, position=None, callback=None):
+        position = self._getPosition(position)
         if not choices:
             choices = []
         self.items[name] = {
@@ -139,8 +140,11 @@ class Options:
         options = ""
         booleanOptions = ""
         for name, item, _ in items:
-            if item['type'] in ['int', 'float', 'str']:
-                options = options + " " + name.split()[0] + "=" + str(item['value'])
+            if item['type'] in ['int', 'float', 'str', 'choice']:
+                value = str(item['value'])
+                if ' ' in value:
+                    value = '[' + value + ']'
+                options = options + " " + name.split()[0] + "=" + value
             if item['type'] == 'bool' and item['value']==True:
                 booleanOptions = booleanOptions + " " + name.split()[0]
         options = options + booleanOptions

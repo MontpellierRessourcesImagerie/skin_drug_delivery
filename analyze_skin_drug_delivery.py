@@ -51,6 +51,8 @@ def getOptions():
     options.addInt("delta", value=1)
     options.addInt("median radius skin", value=50)
     options.addFloat("sigma epidermis", value=32.0)
+    options.addInt("threshold", value=650)
+    options.addChoice("function", choices=["Gamma Variate", "Rodbard"], value="Gamma Variate")
     options.addBool("normalize", value=True)
     options.addBool("fill holes epidermis", True)
     options.addBool("remove holes", True)

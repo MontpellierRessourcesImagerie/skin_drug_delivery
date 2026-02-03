@@ -23,6 +23,8 @@ class OptionsDialog(GenericDialog):
                 self.addCheckbox(name, item['value'])
             if item['type'] == 'str':
                 self.addStringField(name, item['value'])
+            if item['type'] == 'choice':
+                self.addChoice(name, item['choices'], item['value'])
         
         
     def transferValues(self):
@@ -34,6 +36,8 @@ class OptionsDialog(GenericDialog):
              if item['type'] == 'bool':
                 item['value'] = self.getNextBoolean()
              if item['type'] == 'str':
-                item['value'] = self.getNextString()                
+                item['value'] = self.getNextString() 
+             if item['type'] == 'choice':
+                item['value'] = self.getNextChoice()                 
              
             
