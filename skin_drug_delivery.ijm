@@ -45,6 +45,21 @@ macro "Batch Analyze Images [f6]" {
 }
 
 
+macro "Correct Layers (f7) Action Tool - C000T4b12c" {
+    correctLayers();
+}
+
+
+macro "Correct Layers (f7) Action Tool Options" {
+    showCorrectLayersOptions();
+}
+
+
+macro "Correct Layers [f7]" {
+    correctLayers();
+}
+
+
 function analyzeImage() {
     call("ij.Prefs.set", "mri.options.only", "false");   
     params = readOptionsAnalyzeImage();
@@ -56,6 +71,13 @@ function batchAnalyzeImages() {
     call("ij.Prefs.set", "mri.options.only", "false");   
     params = readOptionsBatchAnalyzeImages();
     run("batch analyze skin drug delivery", params); 
+}
+
+
+function correctLayers() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    params = readOptionsCorrectLayers();
+    run("correct layers", params);
 }
 
 
@@ -73,6 +95,20 @@ function showBatchAnalyzeImagesOptions() {
 }
 
 
+function showCorrectLayersOptions() {
+    call("ij.Prefs.set", "mri.options.only", "true");
+    run("correct layers");
+    call("ij.Prefs.set", "mri.options.only", "false");  
+}
+
+
+function getOptionsPathCorrectLayers() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/correct_layers_options.json";
+    return optionsPath;
+}
+
+
 function getOptionsPathAnalyzeImage() {
     pluginsPath = getDirectory("plugins");
     optionsPath = pluginsPath + "skin_drug_delivery/analyze_image_options.json";
@@ -84,6 +120,13 @@ function getOptionsPathBatchAnalyzeImages() {
     pluginsPath = getDirectory("plugins");
     optionsPath = pluginsPath + "skin_drug_delivery/batch_analyze_images_options.json";
     return optionsPath;
+}
+
+
+function readOptionsCorrectLayers() {
+    path = getOptionsPathCorrectLayers();
+    options = readOptions(path);
+    return options;
 }
 
 

@@ -465,6 +465,21 @@ class SkinAnalyzer(object):
         self.function = options.value("function")
         
        
+    def getCentroids(mask):
+        features = AnalyzeRegions.Features()
+        features.setAll(False)
+        features.centroid = True   
+        results = AnalyzeRegions.process(mask, features)
+        y = results.getColumn("Centroid.Y")
+        x = results.getColumn("Centroid.X")
+        return x, y
+    
+    
+    def getCentroid(mask):
+        x, y = getCentroids(mask)
+        return x[0], y[0]
+       
+       
        
 class SkinSegmenter(object):
     

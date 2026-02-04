@@ -1,5 +1,5 @@
+from ij import Prefs
 from ij.gui import GenericDialog
-
 
 
 class OptionsDialog(GenericDialog):
@@ -38,6 +38,19 @@ class OptionsDialog(GenericDialog):
              if item['type'] == 'str':
                 item['value'] = self.getNextString() 
              if item['type'] == 'choice':
-                item['value'] = self.getNextChoice()                 
+                item['value'] = self.getNextChoice()      
+                
+                
+    def showOptions(self):
+        optionsOnly = Prefs.get("mri.options.only", "false")
+        optionsOnly = optionsOnly=='true'
+        self.showDialog()
+        if self.wasCanceled():
+            return False
+        self.transferValues()
+        if optionsOnly:
+            self.options.save()
+            return False
+        return True   
              
             
