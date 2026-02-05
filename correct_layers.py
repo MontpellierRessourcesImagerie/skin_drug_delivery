@@ -21,9 +21,6 @@ def main():
     IJ.run("To ROI Manager", "")
     IJ.run("Remove Overlay", "")
     manager = RoiManager.getInstance()
-    index = manager.getIndex("epidermis")
-    if index > -1:
-        manager.delete(index)
     IJ.setTool("brush")
     manager.runCommand(image,"Show None");
     manager.select(0)
