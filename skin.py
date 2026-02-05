@@ -47,6 +47,7 @@ class SkinAnalyzer(object):
                                        channel with a staining of the nuclei and one channel for the signal to
                                        be measured.
         """
+        self.title = image.getTitle()
         self.image = image
         self.path = image.getOriginalFileInfo().getFilePath()
         
@@ -343,11 +344,37 @@ class SkinAnalyzer(object):
         self.addZoneToTable(self.statsEpidermis, aTable, "epidermis")
         self.addZoneToTable(self.statsDermis, aTable, "dermis")
         
+    
+    def replaceInTable(self, aTable):
+        self.replaceZoneInTable(self.statsCorneum, aTable, "corneum")
+        self.replaceZoneInTable(self.statsEpidermis, aTable, "epidermis")
+        self.replaceZoneInTable(self.statsDermis, aTable, "dermis")
+        
         
     def addZoneToTable(self, zone, aTable, nameOfZone):
         aTable.addRow()
         rowIndex = aTable.size()-1
-        aTable.setValue("Image", rowIndex, self.image.getTitle())
+        self.setRowInTable(rowIndex, zone, aTable, nameOfZone)
+        
+        
+    def replaceZoneInTable(self, zone, aTable, nameOfZone):
+        rowIndex = self.getIndexInTable(nameOfZone)
+        if rowIndex == -1:
+            return
+        self.setRowInTable(rowIndex, zone, aTable, nameOfZone)
+        
+        
+    def getIndexInTable(nameOfZone, table):
+        images = table.getColumn("Image")
+        zones = table.getColumn("Zone")
+        for index, image, zone in enumerate(zip(images, zones)):
+            if self.title == image and zone == nameOfZone:
+                return index
+        return -1                
+        
+        
+    def setRowInTable(self, rowIndex, zone, aTable, nameOfZone):
+        aTable.setValue("Image", rowIndex, self.title)
         aTable.setValue("Zone", rowIndex, nameOfZone)
         aTable.setValue("Area", rowIndex, zone["Area"])
         aTable.setValue("Mean", rowIndex, zone["Mean"])

@@ -16,14 +16,7 @@ tableTitle = "Nanoformulation Density"
 def main():
     options = getOptions()
     dialog = OptionsDialog(options)
-    optionsOnly = Prefs.get("mri.options.only", "false")
-    optionsOnly = optionsOnly=='true'
-    dialog.showDialog()
-    if dialog.wasCanceled():
-        return
-    dialog.transferValues()
-    if optionsOnly:
-        options.save()
+    if not dialog.showOptions():
         return
     folder = IJ.getDir("Please select the input folder!")
     IJ.log("Running batch analyze skin drug delivery")

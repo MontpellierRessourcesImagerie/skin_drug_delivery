@@ -60,6 +60,31 @@ macro "Correct Layers [f7]" {
 }
 
 
+macro "Open Original Image (f8) Action Tool - C000T4b12o" {
+    openOriginalImage();
+}
+
+
+macro "Open Original Image (f8) Action Tool Options" {
+    showOpenOriginalImageOptions();
+}
+
+
+macro "Open Original Image [f8]" {
+    openOriginalImage();
+}
+
+
+macro "Reanalyze Layers (f9) Action Tool - C000T4b12r" {
+    reanalyzeLayers();
+}
+
+
+macro "Reanalyze Layers [f9]" {
+    reanalyzeLayers();
+}
+
+
 function analyzeImage() {
     call("ij.Prefs.set", "mri.options.only", "false");   
     params = readOptionsAnalyzeImage();
@@ -78,6 +103,19 @@ function correctLayers() {
     call("ij.Prefs.set", "mri.options.only", "false");   
     params = readOptionsCorrectLayers();
     run("correct layers", params);
+}
+
+
+function openOriginalImage() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    params = readOptionsOpenOriginalImage();
+    run("open original image", params);
+}
+
+
+function reanalyzeLayers() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    run("reanalyze layers");
 }
 
 
@@ -102,6 +140,13 @@ function showCorrectLayersOptions() {
 }
 
 
+function showOpenOriginalImageOptions() {
+    call("ij.Prefs.set", "mri.options.only", "true");
+    run("open original image");
+    call("ij.Prefs.set", "mri.options.only", "false");      
+}
+
+
 function getOptionsPathCorrectLayers() {
     pluginsPath = getDirectory("plugins");
     optionsPath = pluginsPath + "skin_drug_delivery/correct_layers_options.json";
@@ -123,6 +168,20 @@ function getOptionsPathBatchAnalyzeImages() {
 }
 
 
+function getOptionsPathOpenOriginalImage() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/open_original_image_options.json";
+    return optionsPath;        
+}
+
+
+function getOptionsPathReanalyzeLayers() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/reanalyze_layers_options.json";
+    return optionsPath;        
+}
+
+
 function readOptionsCorrectLayers() {
     path = getOptionsPathCorrectLayers();
     options = readOptions(path);
@@ -139,6 +198,13 @@ function readOptionsAnalyzeImage() {
 
 function readOptionsBatchAnalyzeImages() {
     path = getOptionsPathBatchAnalyzeImages();
+    options = readOptions(path);
+    return options;
+}
+
+
+function readOptionsOpenOriginalImage() {
+    path = getOptionsPathOpenOriginalImage();
     options = readOptions(path);
     return options;
 }

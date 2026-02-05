@@ -9,15 +9,7 @@ from autooptions import Options, OptionsDialog
 def main():
     options = getOptions()
     dialog = OptionsDialog(options)
-    
-    optionsOnly = Prefs.get("mri.options.only", "false")
-    optionsOnly = optionsOnly=='true'
-    dialog.showDialog()
-    if dialog.wasCanceled():
-        return
-    dialog.transferValues()
-    if optionsOnly:
-        options.save()
+    if not dialog.showOptions():
         return
     
     image = IJ.getImage()
