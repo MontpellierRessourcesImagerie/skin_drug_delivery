@@ -49,7 +49,9 @@ class SkinAnalyzer(object):
         """
         self.title = image.getTitle()
         self.image = image
-        self.path = image.getOriginalFileInfo().getFilePath()
+        self.path = image.getFileInfo()
+        if image.getOriginalFileInfo():
+            self.path = image.getOriginalFileInfo().getFilePath()
         
         self.nucleiChannel = 1
         self.signalChannel = 2
