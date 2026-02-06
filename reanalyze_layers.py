@@ -25,9 +25,13 @@ def main() :
     options = getOptions()        
     analyzer = SkinAnalyzer(image, options) 
     analyzer.corneum = corneum
+    analyzer.setCalibration(analyzer.corneum)
     analyzer.epidermis = epidermis
+    analyzer.setCalibration(analyzer.epidermis)
     analyzer.dermis = dermis
+    analyzer.setCalibration(analyzer.dermis)
     analyzer.skin = skin
+    analyzer.setCalibration(analyzer.skin)
     analyzer._prepareImage()
     analyzer.analyzeImage()
     analyzer.image.show()
@@ -38,15 +42,19 @@ def main() :
     analyzer.signalPerDepthDermisTable.show("dermis - signal per depth")
     analyzer.plot.show()
     oPath = image.getOriginalFileInfo().getFilePath()
-    folder = os.path.dirname(os.path.dirname(oPath))
-    resultsPath = os.path.join(folder, "results.xls")
+    conditionFolder = os.path.dirname(oPath)
+    baseFolder = os.path.dirname(conditionFolder)
+    imagesFolder = os.path.join(conditionFolder, "images")
+    resultsPath = os.path.join(baseFolder, "results.xls")
     table = ResultsTable.open(resultsPath)
     analyzer.replaceInTable(table)
+    table.show("results.xls")
     table.save(resultsPath)
+    table.getResultsWindow().close()
     basename = os.path.splitext(os.path.basename(oPath))[0]
-    analyzer.signalPerDepthCorneumTable.save(os.path.join(folder, basename + "_corneum.xls"))
-    analyzer.signalPerDepthEpidermisTable.save(os.path.join(folder, basename + "_epidermis.xls"))
-    analyzer.signalPerDepthDermisTable.save(os.path.join(folder, basename + "_dermis.xls"))
+    analyzer.signalPerDepthCorneumTable.save(os.path.join(conditionFolder, basename + "_corneum.xls"))
+    analyzer.signalPerDepthEpidermisTable.save(os.path.join(conditionFolder, basename + "_epidermis.xls"))
+    analyzer.signalPerDepthDermisTable.save(os.path.join(conditionFolder, basename + "_dermis.xls"))
     pw = analyzer.plot.show()
     batchOptions = Options("skin drug delivery", "Batch Analyze Images")
     batchOptions.load()
@@ -55,11 +63,10 @@ def main() :
                                              True,
                                              False)                                             
     pw.close()   
-    path = os.path.join(folder, "images")
-    IJ.save(plotImage, os.path.join(path, basename + "_plot.png"))
-    IJ.save(analyzer.image, os.path.join(path, basename + ".tif"))
+    IJ.save(plotImage, os.path.join(imagesFolder, basename + "_plot.png"))
+    IJ.save(analyzer.image, os.path.join(imagesFolder, basename + ".tif"))
     analyzer.image.getOverlay().setStrokeWidth(batchOptions.value("stroke width"))
-    IJ.save(analyzer.image, os.path.join(path, basename + ".png"))
+    IJ.save(analyzer.image, os.path.join(imagesFolder, basename + ".png"))
 
 
 def getLayerMasks(image):
@@ -67,50 +74,26 @@ def getLayerMasks(image):
     rois = manager.getRoisAsArray()
     dermisRoi = None
     corneumRoi = None
+    epidermisRoi = None
     for roi in rois:
         if "corneum" in roi.getName():
             corneumRoi = roi
-        if "dermis" in roi.getName():
+        if "dermis" in roi.getName() and not "epi" in roi.getName():
             dermisRoi = roi
+        if "epidermis" in roi.getName():
+            epidermisRoi = roi
     image.setRoi(corneumRoi)
     corneumMask = ImagePlus("corneum", image.createRoiMask())
-    corneumX, corneumY = getCentroid(corneumMask)
     image.setRoi(dermisRoi)
     dermisMask = ImagePlus("dermis", image.createRoiMask())
-    dermisX, dermisY = getCentroid(dermisMask)
-    corneumMask.setRoi(dermisRoi)
+    image.setRoi(epidermisRoi)
+    epidermisMask = ImagePlus("epidermis", image.createRoiMask())
     bothMask = ImageCalculator.run(corneumMask, dermisMask, "OR create")
-    ip = bothMask.getProcessor().duplicate()
-    ip.invert()
-    ip = BinaryImages.componentsLabeling(ip, 4, 16)
-    labels = ImagePlus("both labels", ip)
-    _, centroidsY = getCentroids(labels)
-    label = 1
-    if centroidsY[1] < centroidsY[0]:
-        label = 2
-    epidermisMask = LabelImages.keepLabels(labels, [label])
-    epidermisMask.getProcessor().setThreshold(label, 255)
-    epidermisMask.setProcessor(epidermisMask.createThresholdMask())
     skinMask = ImageCalculator.run(bothMask, epidermisMask, "OR create")
     image.resetRoi()
     return corneumMask, epidermisMask, dermisMask, skinMask
     
     
-def getCentroids(mask):
-    features = AnalyzeRegions.Features()
-    features.setAll(False)
-    features.centroid = True   
-    results = AnalyzeRegions.process(mask, features)
-    y = results.getColumn("Centroid.Y")
-    x = results.getColumn("Centroid.X")
-    return x, y
-    
-    
-def getCentroid(mask):
-    x, y = getCentroids(mask)
-    return x[0], y[0]
-
-
 def getOptions():
     options = Options("skin drug delivery", "Analyze Image")
     options.load()

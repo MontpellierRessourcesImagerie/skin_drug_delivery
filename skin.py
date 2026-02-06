@@ -358,22 +358,26 @@ class SkinAnalyzer(object):
         
         
     def replaceZoneInTable(self, zone, aTable, nameOfZone):
-        rowIndex = self.getIndexInTable(nameOfZone)
+        print("replace")
+        rowIndex = self.getIndexInTable(nameOfZone, aTable)
         if rowIndex == -1:
             return
+        print("row index", rowIndex)
         self.setRowInTable(rowIndex, zone, aTable, nameOfZone)
         
         
-    def getIndexInTable(nameOfZone, table):
-        images = table.getColumn("Image")
-        zones = table.getColumn("Zone")
-        for index, image, zone in enumerate(zip(images, zones)):
+    def getIndexInTable(self, nameOfZone, table):
+        images = table.getColumnAsStrings("Image")
+        zones = table.getColumnAsStrings("Zone")
+        for index, (image, zone) in enumerate(zip(images, zones)):
             if self.title == image and zone == nameOfZone:
                 return index
         return -1                
         
         
     def setRowInTable(self, rowIndex, zone, aTable, nameOfZone):
+        print("area", zone["Area"])
+        print("mean", zone["Mean"])
         aTable.setValue("Image", rowIndex, self.title)
         aTable.setValue("Zone", rowIndex, nameOfZone)
         aTable.setValue("Area", rowIndex, zone["Area"])

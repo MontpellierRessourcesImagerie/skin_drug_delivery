@@ -60,27 +60,37 @@ macro "Correct Layers [f7]" {
 }
 
 
-macro "Open Original Image (f8) Action Tool - C000T4b12o" {
+macro "Update Layer Rois (f8) Action Tool - C000T4b12u" {
+    updateLayerRois();
+}
+
+
+macro "Update Layer Rois [f8]" {
+    updateLayerRois();
+}
+
+
+macro "Open Original Image (f9) Action Tool - C000T4b12o" {
     openOriginalImage();
 }
 
 
-macro "Open Original Image (f8) Action Tool Options" {
+macro "Open Original Image (f9) Action Tool Options" {
     showOpenOriginalImageOptions();
 }
 
 
-macro "Open Original Image [f8]" {
+macro "Open Original Image [f9]" {
     openOriginalImage();
 }
 
 
-macro "Reanalyze Layers (f9) Action Tool - C000T4b12r" {
+macro "Reanalyze Layers (f10) Action Tool - C000T4b12r" {
     reanalyzeLayers();
 }
 
 
-macro "Reanalyze Layers [f9]" {
+macro "Reanalyze Layers [f10]" {
     reanalyzeLayers();
 }
 
@@ -103,6 +113,12 @@ function correctLayers() {
     call("ij.Prefs.set", "mri.options.only", "false");   
     params = readOptionsCorrectLayers();
     run("correct layers", params);
+}
+
+
+function updateLayerRois() {
+    call("ij.Prefs.set", "mri.options.only", "false");   
+    run("update layer rois");
 }
 
 
