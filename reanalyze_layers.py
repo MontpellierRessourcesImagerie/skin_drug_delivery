@@ -13,7 +13,7 @@ from fr.cnrs.mri.cialib.skin import SkinAnalyzer
 from fr.cnrs.mri.cialib.autooptions import Options, OptionsDialog
 
 
-def main() :
+def main():
     image = IJ.getImage()
     corneum, epidermis, dermis, skin = getLayerMasks(image)
     tableTitle = "Nanoformulation Density"

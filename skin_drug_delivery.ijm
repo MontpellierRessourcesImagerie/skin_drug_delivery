@@ -278,7 +278,7 @@ function installOrUpdate() {
     setToolInfo();
     print("Running the updater...");
     scriptsFolder = getDirectory("imagej") + "scripts/";
-    runMacro(scriptsFolder + "rep_updater.py");
+    run("rep updater");
     unsetToolInfo();
 }
 
