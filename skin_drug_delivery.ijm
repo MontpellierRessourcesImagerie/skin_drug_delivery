@@ -281,8 +281,8 @@ function installOrUpdate() {
         unsetToolInfo();
     } else {
         print("Installing the updater...");
-        updateUpdater()  
-        print("Please restart FIJI and press the install/update button again!"
+        updateUpdater();  
+        print("Please restart FIJI and press the install/update button again!");
     }
        
 }
