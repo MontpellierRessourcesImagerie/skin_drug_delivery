@@ -109,7 +109,7 @@ class Updater:
     def downloadTagFromGithub(self, tag):
         downloadUrl = self.archiveUrl + tag + ".zip"
         tmpFolder = IJ.getDirectory("temp")
-        outputFilePath = tmpFolder + "/" + self.tool + "_" + tag + ".zip"
+        outputFilePath = tmpFolder + "/" + self.tool + "-" + tag + ".zip"
         response = urlopen(downloadUrl)
         CHUNK = 16 * 1024
         with open(outputFilePath, 'wb') as f:
@@ -120,7 +120,7 @@ class Updater:
                 f.write(chunk)
         with ZipFile(outputFilePath, 'r') as zObject:
             zObject.extractall(path=tmpFolder)
-        self.sourceFolder = IJ.getDirectory("temp") + self.tool + "_" + tag[1:] + "/" 
+        self.sourceFolder = IJ.getDirectory("temp") + self.tool + "-" + tag[1:] + "/" 
         
     
     def getTargetVersionFromUser(self):
