@@ -1,7 +1,7 @@
 /**
   *  Tools to analyze the penetration of nanoformulations into the skin.
   *   
-  *  (c) 2026, INSERM
+  *  (c) 2026, MRI-CIA, INSERM
   *  written  by Volker Baecker (INSERM) at Montpellier RIO Imaging (www.mri.cnrs.fr)
   * 
   **

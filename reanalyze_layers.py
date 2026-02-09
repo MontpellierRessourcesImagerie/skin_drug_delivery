@@ -10,7 +10,7 @@ from inra.ijpb.plugins  import AnalyzeRegions
 from inra.ijpb.binary import BinaryImages
 from inra.ijpb.label import LabelImages
 from fr.cnrs.mri.cialib.skin import SkinAnalyzer
-from autooptions import Options, OptionsDialog
+from fr.cnrs.mri.cialib.autooptions import Options, OptionsDialog
 
 
 def main() :

@@ -7,7 +7,7 @@ from ij import Prefs
 from ij import WindowManager
 from ij.measure import ResultsTable
 from fr.cnrs.mri.cialib.skin import SkinAnalyzer
-from autooptions import Options, OptionsDialog
+from r.cnrs.mri.cialib.autooptions import Options, OptionsDialog
 
 
 tableTitle = "Nanoformulation Density"

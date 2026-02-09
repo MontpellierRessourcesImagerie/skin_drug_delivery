@@ -1,6 +1,7 @@
 import java
 from fr.cnrs.mri.cialib.skin import SkinAnalyzer
 from ij.io import Opener
+from ij.io import FileInfo
 from ij import ImagePlus
 from ij.process import FloatProcessor
 from java.awt.image import ColorModel
@@ -38,6 +39,10 @@ class Data:
         cm = LutLoader.getLut(color)
         ip = FloatProcessor(width, height, bytes, cm)
         image = ImagePlus(name, ip)
+        fileInfo = FileInfo()
+        fileInfo.directory = "A"
+        fileInfo.fileName = "i.tif"
+        image.setFileInfo(fileInfo)
         return image
 
 
