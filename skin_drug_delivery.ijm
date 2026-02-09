@@ -240,8 +240,8 @@ function readOptions(path) {
     }
     text = File.openAsString(path);
     parts = split(text, '}');
-    options = ""
-    booleanOptions = ""
+    options = "";
+    booleanOptions = "";
     for (i = 0; i < parts.length; i++) {    
         line = parts[i];
         if (line.length==0) continue;
