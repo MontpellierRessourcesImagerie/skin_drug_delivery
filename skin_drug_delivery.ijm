@@ -272,16 +272,20 @@ function readOptions(path) {
 }
 
 
-function installOrUpdate() {
-    print("Downloading the updater...");
-    updateUpdater()
-    setToolInfo();
-    print("Running the updater...");
+function installOrUpdate() {        
     scriptsFolder = getDirectory("imagej") + "scripts/";
-    run("rep updater");
-    unsetToolInfo();
+    if (File.exists(scriptsFolder + "rep_updater.py")) {
+        print("Running the updater...");
+        setToolInfo();
+        run("rep updater");   
+        unsetToolInfo();
+    } else {
+        print("Installing the updater...");
+        updateUpdater()  
+        print("Please restart FIJI and press the install/update button again!"
+    }
+       
 }
-
 
 
 function setToolInfo() {

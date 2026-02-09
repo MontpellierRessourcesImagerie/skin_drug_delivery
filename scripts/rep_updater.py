@@ -14,7 +14,7 @@ class Updater:
         self.tool = "spine_analyzer" 
         self.folder = "Spine-Analyzer"
         self.author = "volker"
-        self.libPath = IJ.getDirectory("imagej") + "/plugins/jars/Lib/"
+        self.libPath = IJ.getDirectory("imagej") + "/jars/Lib/"
         self.pythonModulesPath = 'fr/cnrs/mri/cialib/'
         self.tag = None
         
