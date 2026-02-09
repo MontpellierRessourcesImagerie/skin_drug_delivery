@@ -1,7 +1,8 @@
 import os
 from ij import IJ
 from loci.plugins import BF
-from fr.cnrs.mri.cialib.autooptions import Options, OptionsDialog
+from fr.cnrs.mri.cialib.options import Options
+from fr.cnrs.mri.cialib.dialog import OptionsDialog
 
 
 def main():

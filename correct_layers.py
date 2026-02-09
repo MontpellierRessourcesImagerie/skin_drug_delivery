@@ -1,7 +1,8 @@
 from ij import IJ
 from ij.gui import Toolbar
 from ij.plugin.frame import RoiManager
-from fr.cnrs.mri.cialib.autooptions import Options, OptionsDialog
+from fr.cnrs.mri.cialib.options import Options
+from fr.cnrs.mri.cialib.dialog import OptionsDialog
 
 
 def main():

@@ -235,6 +235,9 @@ function readOptionsOpenOriginalImage() {
 
 
 function readOptions(path) {
+    if (!File.exists(path)) {
+        return "";
+    }
     text = File.openAsString(path);
     parts = split(text, '}');
     options = ""

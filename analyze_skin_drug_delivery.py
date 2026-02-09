@@ -3,7 +3,8 @@ from ij import Prefs
 from ij import WindowManager
 from ij.measure import ResultsTable
 from fr.cnrs.mri.cialib.skin import SkinAnalyzer
-from fr.cnrs.mri.cialib.autooptions import Options, OptionsDialog
+from fr.cnrs.mri.cialib.options import Options
+from fr.cnrs.mri.cialib.dialog import OptionsDialog
 
 
 def main():
