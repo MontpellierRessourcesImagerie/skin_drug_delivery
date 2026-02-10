@@ -13,7 +13,8 @@ Press the ``Install or Update Tool``-button (a cloud with a downwards arrow). Th
 
 <img width="228" height="189" alt="image" src="https://github.com/user-attachments/assets/099794de-2df0-4fd0-b426-17eda8687cbd" />
 
-Press ok and after the installation finished, download the file [holes.classifier](https://github.com/MontpellierRessourcesImagerie/skin_drug_delivery/releases/download/v0.1/holes.classifier) into the folder ``plugins/skin_drug_delivery`` of your FIJI installation.
+Press ok and after the installation finished, restart FIJI.
+
 
 
 
