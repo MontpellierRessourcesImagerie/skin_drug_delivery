@@ -15,7 +15,8 @@ def main():
         return
     dataFolder = options.value("data folder")
     url = options.value("url")
-    shutil.rmtree(dataFolder)
+    if os.path.exists(dataFolder):
+        shutil.rmtree(dataFolder)
     os.makedirs(dataFolder)
     name = os.path.basename(url)
     IJ.log("Downloading Dataset...")
