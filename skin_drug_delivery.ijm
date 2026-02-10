@@ -293,6 +293,7 @@ function readOptions(path) {
     }
     text = File.openAsString(path);
     text = replace(text, "https:", "httpsD");
+    text = replace(text, '\\:\\\\', '\\*\\\\');
     parts = split(text, '}');
     options = "";
     booleanOptions = "";
@@ -325,6 +326,7 @@ function readOptions(path) {
     }
     options = options + booleanOptions;
     options = replace(options, "httpsD", "https:");
+    options = replace(options, '\\*\\\\', '\\:\\\\');
     options = String.trim(options);
     return options;
 }
