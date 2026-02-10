@@ -1,6 +1,7 @@
 import os
 import shutil
 from urllib import urlopen
+from urllib import urlretrieve
 from  zipfile import ZipFile
 from ij import IJ
 from ij import Prefs
@@ -17,7 +18,7 @@ class Updater:
         self.libPath = IJ.getDirectory("imagej") + "/jars/Lib/"
         self.pythonModulesPath = 'fr/cnrs/mri/cialib/'
         self.tag = None
-        
+        self.classifierURLs = ["https://github.com/MontpellierRessourcesImagerie/skin_drug_delivery/releases/download/v0.1/holes.classifier"]
         self.readPreferences()          
             
         self.host = "https://github.com/"
@@ -49,6 +50,7 @@ class Updater:
             return
         self.downloadTagFromGithub(self.tag)
         self.installTool()
+        self.downloadClassifiers()
         self.writeVersionInfo()
         IJ.log("Update finished, please restart ImageJ!")
         IJ.showMessage("Update finished, please restart ImageJ!")
@@ -72,8 +74,14 @@ class Updater:
                 continue
             IJ.log("writing file " + file + " to " + self.pluginsToolDir);
             shutil.copy(file, self.pluginsToolDir)
+        
             
-                    
+    def downloadClassifiers(self):
+        for url in self.classifierURLs:
+            name = os.path.basename(url)
+            urlretrieve(url, os.path.join(self.pluginsToolDir, name))
+        
+        
     def isToolset(self, file):
         result = True
         content = IJ.openAsString(file)
