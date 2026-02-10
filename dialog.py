@@ -8,7 +8,7 @@ class OptionsDialog(GenericDialog):
     def __init__(self, options):
         super(OptionsDialog, self).__init__(options.optionsName)
         self.options = options
-        self.addFields()
+        self.columns = 8
         
         
     def addFields(self):
@@ -22,7 +22,7 @@ class OptionsDialog(GenericDialog):
             if item['type'] == 'bool':
                 self.addCheckbox(name, item['value'])
             if item['type'] == 'str':
-                self.addStringField(name, item['value'])
+                self.addStringField(name, item['value'], self.columns)
             if item['type'] == 'choice':
                 self.addChoice(name, item['choices'], item['value'])
         
@@ -42,6 +42,7 @@ class OptionsDialog(GenericDialog):
                 
                 
     def showOptions(self):
+        self.addFields()
         optionsOnly = Prefs.get("mri.options.only", "false")
         optionsOnly = optionsOnly=='true'
         self.showDialog()

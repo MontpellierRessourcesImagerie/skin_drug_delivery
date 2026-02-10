@@ -97,6 +97,45 @@ macro "Reanalyze Layers [f10]" {
     reanalyzeLayers();
 }
 
+var dCmds = newMenu("Images Menu Tool", newArray("download dataset", 
+                                                 "B2-DiI/B2-DiI-n1-c1 40X.czi", 
+                                                 "B2-DiI/B2-DiI-n1-c2 40X.czi", 
+                                                 "OEV/OEV_n3_c2_40X_1.czi", 
+                                                 "OEV/OEV_n3_c2_40X_2.czi",
+                                                 "PBS/PBS_n3_c1_40X_1.czi",
+                                                 "options"));
+    
+macro "Images Menu Tool - CfffL00f0L0161CeeeD71CfffL81f1L0252CeeeD62C666D72CeeeD82CfffL92f2L0353CeeeD63C444D73CeeeD83CfffL93f3L0454CeeeD64C444D74CeeeD84CfffL94f4L0555CeeeD65C444D75CeeeD85CfffL95f5L0636CdddD46CfffD56CeeeD66C444D76CeeeD86CfffD96CdddDa6CfffLb6f6L0727CdddD37C444D47CbbbD57CeeeD67C444D77CeeeD87CbbbD97C444Da7CdddDb7CfffLc7f7L0838CbbbD48C444D58C999D68C444D78C999D88C444D98CbbbDa8CfffLb8f8L0949CbbbD59C333D69C111D79C333D89CbbbD99CfffLa9f9L0a5aCbbbD6aC444D7aCbbbD8aCfffL9afaL0b6bCeeeD7bCfffL8bfbL0c2cCeeeL3cbcCfffLccfcL0d1dCeeeD2dC666D3dC444L4dadC666DbdCeeeDcdCfffLddfdL0e2eCeeeL3ebeCfffLcefeL0fff" {
+       cmd = getArgument();       
+       if (cmd=="download dataset") {
+           call("ij.Prefs.set", "mri.options.only", "false");   
+           params = readOptionsDownloadDataset();
+           print("Starting download of the dataset...");
+           print(params);
+           run("download sdd dataset", params); 
+           print("...download of the dataset finished.");
+           return;
+       } 
+       if (cmd=="options") {
+            call("ij.Prefs.set", "mri.options.only", "true");
+            run("download sdd dataset");
+            call("ij.Prefs.set", "mri.options.only", "false"); 
+            return;
+       }
+       params = readOptionsDownloadDataset();
+       parts = split(params, " ");
+       for (i = 0; i < parts.length; i++) {
+            param = parts[i];
+            iParts = split(param, "=");
+            key = iParts[0];
+            if (key=="data") {
+                dataFolder = iParts[1];
+            }
+       }
+       path = dataFolder + '/skin_drug_delivery_small_dataset/' + cmd;
+       run("Bio-Formats", "open=[" + path + "] autoscale color_mode=Default rois_import=[ROI manager] view=Hyperstack stack_order=XYCZT");
+}
+
 
 macro "Install or Update Action Tool - N66C000D2dD2eD3cD58D59D5aD67D75Db3DbeDc3DcdDceDd3DddDdeDe3DeeC666D69Db4De4C222D2cD57D76D85D93DaeDc9DcaDcbDccDd9DdaDdbDdcCdddD0eD2aD47D4dD55D64D6bD8dDb9DbaDbbDc1Dd1De9DeaDebC111D3bD4aD94DadDbdDedC999D48D86D95Dc4Dd4C555D74Dc2Dd2CfffD0dD1bD46D87Da5Db1Db8De1De8C000D4bD66D84Da3C888D2bD3eD6aDa2C444D1eD3dD65D68D9dDa4CeeeD39D5cD73D79D9cDacCbbbD1cD78D92D9eDbcDc8Dd8DecC555D49D5bDb2De2C777D1dD3aD4cD56D77D83Bf0C000D35D47D58D59D5aD7cD8dD8eC666D49C222D0eD13D25D36D57D8cCdddD2dD44D4bD55D67D6dD8aDaeC111D0dD14D6aD7bC999D15D26D68C555D34CfffD05D27D66D9bDadC000D03D24D46D6bC888D02D4aD7eD8bC444D04D1dD45D48D7dD9eCeeeD0cD1cD33D39D5cD79CbbbD12D1eD38D9cC555D5bD69C777D23D37D56D6cD7aD9dB0fC000D65D74D80D81D82C666D35C222D55D64D90CdddD76D94Da0Da1C111D56D73C999D00D54D63D70D71D93C555D37D45D66D84CfffD10D67C000D06D16D26D36D46D83C888D05D15D25C444D07D17D27D75D91CeeeD01D44D62Da2CbbbD57D85C555D72D92C777D47Nf0C000D20D21D22D34D45Dc0Dd0C666D75Db1De1C222D44D55Db0De0CdddD00D01D14D36Dc3Dd3C111D23D33D56C999D13D30D31D43D54Da0C555D24D46D65D77CfffD47D90C000D66D76D86D96Da6Db6Dc1Dc6Dd1Dd6De6C888D85D95Da5Db5Dc5Dd5De5C444D10D11D35D87D97Da7Db7Dc7Dd7De7CeeeD02D42D64Da1Db2De2CbbbD25D57C555D12D32Dc2Dd2C777D67"{
     installOrUpdate();
@@ -206,6 +245,13 @@ function getOptionsPathReanalyzeLayers() {
 }
 
 
+function getOptionsPathDownloadDataset() {
+    pluginsPath = getDirectory("plugins");
+    optionsPath = pluginsPath + "skin_drug_delivery/download_dataset_options.json";
+    return optionsPath; 
+}
+
+
 function readOptionsCorrectLayers() {
     path = getOptionsPathCorrectLayers();
     options = readOptions(path);
@@ -234,11 +280,19 @@ function readOptionsOpenOriginalImage() {
 }
 
 
+function readOptionsDownloadDataset() {
+    path = getOptionsPathDownloadDataset();
+    options = readOptions(path);
+    return options;    
+}
+
+
 function readOptions(path) {
     if (!File.exists(path)) {
         return "";
     }
     text = File.openAsString(path);
+    text = replace(text, "https:", "httpsD");
     parts = split(text, '}');
     options = "";
     booleanOptions = "";
@@ -270,6 +324,7 @@ function readOptions(path) {
         }
     }
     options = options + booleanOptions;
+    options = replace(options, "httpsD", "https:");
     options = String.trim(options);
     return options;
 }
