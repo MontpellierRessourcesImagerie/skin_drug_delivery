@@ -437,9 +437,18 @@ class SkinAnalyzer(object):
         mean = []
         stdDev = []
         depth = []
-        for t in range(1, int(round(stats.max))-self.delta):
+        for t in range(1, int(round(stats.max))):
             depth.append(self.signal.getCalibration().getX(t))
-            ip.setThreshold(t,t+self.delta)
+            if self.delta < 3:
+                ip.setThreshold(t, t + 1)
+            else:            
+                leftOffset = self.delta // 2
+                rightOffset = self.delta // 2
+                if t - leftOffset < 0:
+                    leftOffset = t
+                if t + rightOffset > int(round(stats.max)):
+                    rightOffset =  int(round(stats.max)) - t
+                ip.setThreshold(t - leftOffset, t + rightOffset)                
             mask = ip.createMask()
             features = AnalyzeRegions.Features()
             features.setAll(False)
@@ -497,21 +506,6 @@ class SkinAnalyzer(object):
         self.threshold = options.value("threshold")
         self.function = options.value("function")
         
-       
-    def getCentroids(mask):
-        features = AnalyzeRegions.Features()
-        features.setAll(False)
-        features.centroid = True   
-        results = AnalyzeRegions.process(mask, features)
-        y = results.getColumn("Centroid.Y")
-        x = results.getColumn("Centroid.X")
-        return x, y
-    
-    
-    def getCentroid(mask):
-        x, y = getCentroids(mask)
-        return x[0], y[0]
-       
        
        
 class SkinSegmenter(object):
