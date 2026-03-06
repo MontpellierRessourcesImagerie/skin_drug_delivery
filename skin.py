@@ -360,11 +360,9 @@ class SkinAnalyzer(object):
         
         
     def replaceZoneInTable(self, zone, aTable, nameOfZone):
-        print("replace")
         rowIndex = self.getIndexInTable(nameOfZone, aTable)
         if rowIndex == -1:
             return
-        print("row index", rowIndex)
         self.setRowInTable(rowIndex, zone, aTable, nameOfZone)
         
         
@@ -378,8 +376,6 @@ class SkinAnalyzer(object):
         
         
     def setRowInTable(self, rowIndex, zone, aTable, nameOfZone):
-        print("area", zone["Area"])
-        print("mean", zone["Mean"])
         aTable.setValue("Image", rowIndex, self.title)
         aTable.setValue("Zone", rowIndex, nameOfZone)
         aTable.setValue("Area", rowIndex, zone["Area"])

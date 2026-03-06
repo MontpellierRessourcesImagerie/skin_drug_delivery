@@ -24,6 +24,7 @@ class Data:
         channel2Image = self.getTestImageFor(channel2, "test_c2", 'red')
         channel3Image = self.getTestImageFor(channel3, "test_c3", 'grays')
         image = RGBStackMerge.mergeChannels([channel1Image, channel2Image, channel3Image], False)
+        image.updateImage()
         return image
 
 
@@ -38,6 +39,7 @@ class Data:
         bytes = jarray.array(newRows, 'f')
         cm = LutLoader.getLut(color)
         ip = FloatProcessor(width, height, bytes, cm)
+        ip = ip.convertToShort(False)
         image = ImagePlus(name, ip)
         fileInfo = FileInfo()
         fileInfo.directory = "A"
