@@ -49,6 +49,7 @@ def getOptions():
     options.addBool("normalize", value=True)
     options.addBool("fill holes epidermis", True)
     options.addBool("remove holes", True)
+    options.addBool("subtract background", True)
     options.load()
     return options
 

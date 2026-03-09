@@ -65,6 +65,7 @@ class SkinAnalyzer(object):
         self.threshold = 650
         self.function="Gamma Variate"
         self.epidermisFillHoles = True
+        self.subtractBackground = True
         
         self.skin = None
         self.corneum = None
@@ -97,7 +98,8 @@ class SkinAnalyzer(object):
                                 
     def analyzeImage(self):
         self.overlayZonesOnImage()
-        self.subtractBackground()
+        if self.subtractBackground:
+            self.doBackgroundSubtraction()
         self.measureSignalPerDepth()    
         self.measureSignal()        
         self.createCombinedPlot()
@@ -162,8 +164,8 @@ class SkinAnalyzer(object):
         stats["Threshold"] = self.threshold
         
         
-    def subtractBackground(self):
-        mask = self.skin.getProcessor()
+    def doBackgroundSubtraction(self):
+        mask = self.skin.getProcessor().duplicate()
         mask.invert()
         strel = DiskStrel.fromRadius(self.strelRadius)
         mask = strel.erosion(mask)
@@ -231,7 +233,6 @@ class SkinAnalyzer(object):
         ip = BinaryImages.componentsLabeling(ip, 4, 16)
         ip = BinaryImages.keepLargestRegion(ip)
         mask.setProcessor(ip)
-        self.skin = mask
         
         
     def _prepareImage(self):
@@ -253,10 +254,11 @@ class SkinAnalyzer(object):
         segmenter = SkinSegmenter(ip)
         segmenter.medianRadius = self.skinMedianRadius
         segmenter.run()
-        self.skin = ImagePlus("skin", segmenter.imageProcessor)  
-        self.setCalibration(self.skin)
+        self.skin = ImagePlus("skin", segmenter.imageProcessor)          
         self.postProcess(segmenter.mask)
-        
+        self.skin = segmenter.mask
+        self.setCalibration(self.skin)
+
  
     def setCalibration(self, image):
         cal = self.image.getCalibration()
@@ -397,24 +399,23 @@ class SkinAnalyzer(object):
     def measureSignalPerDepth(self):
         skin = self.skin            
         edt = EDT()
-        invertedSkinIP = skin.getProcessor().duplicate()
-        invertedSkinIP.invert()
-        invertedSkin = ImagePlus("inverted skin", invertedSkinIP)
-        edtImage = edt.compute(invertedSkin.getStack())
+        duplicatedSkinIP = skin.getProcessor().duplicate()
+        duplicatedSkin = ImagePlus("duplicated skin", duplicatedSkinIP)
+        edtImage = edt.compute(duplicatedSkin.getStack())
         self.signalPerDepthCorneumTable = self.measureSignalPerDepthForZone(
                                                 self.getCorneumRoi(), 
                                                 ImagePlus("edt_corneum", edtImage.getProcessor().duplicate()))
-        invertedSkin.setRoi(self.getCorneumRoi())
-        IJ.run(invertedSkin, "Clear", "")
-        invertedSkin.resetRoi()
-        edtImage = edt.compute(invertedSkin.getStack())
+        duplicatedSkin.setRoi(self.getCorneumRoi())
+        IJ.run(duplicatedSkin, "Clear", "")
+        duplicatedSkin.resetRoi()
+        edtImage = edt.compute(duplicatedSkin.getStack())
         self.signalPerDepthEpidermisTable = self.measureSignalPerDepthForZone(
                                                 self.getEpidermisRoi(), 
                                                 ImagePlus("edt_epidermis", edtImage.getProcessor().duplicate()))
-        invertedSkin.setRoi(self.getEpidermisRoi())
-        IJ.run(invertedSkin, "Clear", "")
-        invertedSkin.resetRoi()
-        edtImage = edt.compute(invertedSkin.getStack())                                                        
+        duplicatedSkin.setRoi(self.getEpidermisRoi())
+        IJ.run(duplicatedSkin, "Clear", "")
+        duplicatedSkin.resetRoi()
+        edtImage = edt.compute(duplicatedSkin.getStack())                                                        
         self.signalPerDepthDermisTable = self.measureSignalPerDepthForZone(
                                                 self.getDermisRoi(), 
                                                 ImagePlus("edt_dermis", edtImage.getProcessor().duplicate()))
@@ -501,6 +502,7 @@ class SkinAnalyzer(object):
         self.removeHoles = options.value("remove holes")
         self.threshold = options.value("threshold")
         self.function = options.value("function")
+        self.subtractBackground = options.value("subtract background")
         
        
        
