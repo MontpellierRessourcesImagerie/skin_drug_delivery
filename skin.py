@@ -7,8 +7,10 @@ from ij import ImagePlus
 from ij import LookUpTable
 from ij.gui import Overlay
 from ij.gui import Plot
+from ij.gui import Roi
 from ij.measure import ResultsTable
 from ij.measure import CurveFitter
+from ij.measure import Measurements
 from ij.plugin import ImageCalculator
 from ij.plugin import LutLoader
 from ij.plugin import ZProjector
@@ -19,7 +21,7 @@ from ij.plugin.filter import GaussianBlur
 from ij.plugin.filter import RankFilters
 from ij.plugin.filter import ThresholdToSelection
 
-
+from inra.ijpb.math import ImageCalculator as InraImageCalculator
 from inra.ijpb.binary import BinaryImages
 from inra.ijpb.label import LabelImages
 from inra.ijpb.measure import IntensityMeasures
@@ -62,11 +64,15 @@ class SkinAnalyzer(object):
         self.removeHoles = True
         self.skinMedianRadius = 50
         self.epidermisSigma = 32
-        self.threshold = 650
-        self.function="Gamma Variate"
+        self.threshold = 1600
+        self.function="Polynomial"
         self.epidermisFillHoles = True
         self.subtractBackground = True
+        self.measureOnCentralSlice = True
         
+        self.startDistDermis = 0
+        self.startDistEpidermis = 0
+        self.startDistCorneum = 0
         self.skin = None
         self.corneum = None
         self.epidermis = None
@@ -138,24 +144,37 @@ class SkinAnalyzer(object):
         stats["Kurtosis"] = measures.getKurtosis().getColumn('Kurtosis')[0]
         self.measurePenetrationDepths(stats, perDepthtable)
         
-        
-    def measurePenetrationDepths(self, stats, table):
-        depths = table.getColumn("Depth")
-        means = table.getColumn("Mean")
-        fitter = CurveFitter(depths, means)
+
+    def getFunctionForFit(self):
         function = CurveFitter.GAMMA_VARIATE
         if self.function == "Rodbard":
             function = CurveFitter.RODBARD
-        fitter.doFit(function)
-        noLimit = True
-        noEntry = False
+        if self.function == "Polynomial":
+            function = CurveFitter.POLY6
+        return function
+        
+        
+    @classmethod        
+    def getIndexOfFirstLocalMaximum(cls, arr):
+        for i in range(1, len(arr) - 1):
+            if arr[i] > arr[i - 1] and arr[i] > arr[i + 1]:
+                return i
+        return 0                
+        
+        
+    def measurePenetrationDepths(self, stats, table):
+        depths = table.getColumn("Depth")
+        indices = list(range(len(depths)))
+        means = table.getColumn("Mean")
+        fitter = CurveFitter(depths, means)        
+        fitter.doFit(self.getFunctionForFit())        
+        fittedValues = [fitter.f(depth) for depth in depths]
+        startIndex = self.getIndexOfFirstLocalMaximum(fittedValues)
         first = True
-        for depth in depths:
+        for depth in depths[startIndex:]:
             if fitter.f(depth) <= self.threshold:
-                noLimit = False
                 if first:
                     depth = 0
-                    noEntry = True
                 break
             first = False
         stats["Depth"] = depth
@@ -186,28 +205,31 @@ class SkinAnalyzer(object):
         self.image.setOverlay(overlay)
         
         
-    def getDermisRoi(self):
-        roi = self.getRoiOfMask(self.dermis)
+    def getDermisRoi(self, filled=False):
+        roi = self.getRoiOfMask(self.dermis, filled)
         roi.setName("dermis")
         return roi
         
     
-    def getEpidermisRoi(self):
-        roi = self.getRoiOfMask(self.epidermis)
+    def getEpidermisRoi(self, filled=False):
+        roi = self.getRoiOfMask(self.epidermis, filled)
         roi.setName("epidermis")
         return roi 
         
     
-    def getCorneumRoi(self):
-        roi = self.getRoiOfMask(self.corneum)
+    def getCorneumRoi(self, filled=False):
+        roi = self.getRoiOfMask(self.corneum, filled)
         roi.setName("corneum")
         return roi
         
         
-    def getRoiOfMask(self, mask):
-        mask.getProcessor().setThreshold(125, 255)
+    def getRoiOfMask(self, mask, filled):
+        layerMask = mask.duplicate()
+        if filled:
+            self.postProcess(layerMask, split=True)
+        layerMask.getProcessor().setThreshold(125, 255)
         converter = ThresholdToSelection()
-        roi = converter.convert(mask.getProcessor())
+        roi = converter.convert(layerMask.getProcessor())
         return roi
         
         
@@ -220,25 +242,75 @@ class SkinAnalyzer(object):
             stats = ip.getStats()
             ip.subtract(stats.mean)
             ip.multiply(1.0 / stats.stdDev)
-        
-        
-    def postProcess(self, mask):
+
+
+    @classmethod
+    def postProcessOneBackground(cls, mask):
         ip = mask.getProcessor()
         ip = Reconstruction.fillHoles(ip)
         ip.invert()
         ip = Reconstruction.fillHoles(ip)
+        ip.invert()
         ip = BinaryImages.componentsLabeling(ip, 4, 16)
         ip = BinaryImages.keepLargestRegion(ip)
         ip.invert()
         ip = BinaryImages.componentsLabeling(ip, 4, 16)
         ip = BinaryImages.keepLargestRegion(ip)
+        ip.invert()
+        return ip
+
+
+    @classmethod
+    def postProcessSplitBackground(cls, mask):        
+        ip = mask.getProcessor()
+        ip = Reconstruction.fillHoles(ip)
+        ip.invert()
+        ip = Reconstruction.fillHoles(ip)
+        ip.invert()
+        ip = BinaryImages.componentsLabeling(ip, 4, 16)
+        ip = BinaryImages.keepLargestRegion(ip)
+        ip.invert()
+        ip = BinaryImages.componentsLabeling(ip, 4, 16)
+        ip1 = BinaryImages.keepLargestRegion(ip)
+        LabelImages.removeLargestLabel(ip)
+        ip2 = BinaryImages.keepLargestRegion(ip)
+        op = InraImageCalculator.Operation.OR
+        ip = InraImageCalculator.combineImages(ip1, ip2, op)
+        ip.invert()
+        return ip
+        
+        
+    @classmethod        
+    def disconnectLowerBorder(cls, mask):        
+        width = mask.getWidth()
+        height = mask.getHeight()
+        roi = Roi(0, height-2, width, 4)
+        mask.setRoi(roi)
+        IJ.setBackgroundColor(0, 0, 0);
+        IJ.run(mask, "Clear", "slice");
+        mask.resetRoi()
+    
+    
+    def postProcess(self, mask, split=False):
+        self.disconnectLowerBorder(mask)
+        if split:
+            ip = self.postProcessSplitBackground(mask)
+        else:
+            ip = self.postProcessOneBackground(mask)
         mask.setProcessor(ip)
         
         
     def _prepareImage(self):
+        if self.measureOnCentralSlice:
+            nSlices = self.image.getDimensions()[3]
+            middleIndex = nSlices // 2
+            stack = self.image.getImageStack()
+            index = self.image.getStackIndex(2, middleIndex, 1)
+            self.signal = ImagePlus("signal", stack.getProcessor(index).duplicate())
         if self.image.getNSlices() > 1:
             self._doMIPProjection()
-        self.signal = ImagePlus("signal", self.image.getStack().getProcessor(self.signalChannel))
+        if not self.measureOnCentralSlice:            
+            self.signal = ImagePlus("signal", self.image.getStack().getProcessor(self.signalChannel))
         self.setCalibration(self.signal)
         if self.normalize:
             self.doNormalize()
@@ -253,8 +325,7 @@ class SkinAnalyzer(object):
         ip = self.image.getStack().getProcessor(self.brightfieldChannel).duplicate()
         segmenter = SkinSegmenter(ip)
         segmenter.medianRadius = self.skinMedianRadius
-        segmenter.run()
-        self.skin = ImagePlus("skin", segmenter.imageProcessor)          
+        segmenter.run()    
         self.postProcess(segmenter.mask)
         self.skin = segmenter.mask
         self.setCalibration(self.skin)
@@ -402,23 +473,32 @@ class SkinAnalyzer(object):
         duplicatedSkinIP = skin.getProcessor().duplicate()
         duplicatedSkin = ImagePlus("duplicated skin", duplicatedSkinIP)
         edtImage = edt.compute(duplicatedSkin.getStack())
+        edtImage.setRoi(self.getEpidermisRoi())
+        stats = edtImage.getStatistics(Measurements.MIN_MAX)
+        self.startDistEpidermis = stats.min
+        edtImage.setRoi(self.getDermisRoi())
+        stats = edtImage.getStatistics(Measurements.MIN_MAX)
+        self.startDistDermis = stats.min
+        edtImage.resetRoi()
         self.signalPerDepthCorneumTable = self.measureSignalPerDepthForZone(
                                                 self.getCorneumRoi(), 
-                                                ImagePlus("edt_corneum", edtImage.getProcessor().duplicate()))
-        duplicatedSkin.setRoi(self.getCorneumRoi())
+                                                ImagePlus("edt_corneum", edtImage.getProcessor().duplicate()))        
+        duplicatedSkin.setRoi(self.getCorneumRoi(filled=True))
         IJ.run(duplicatedSkin, "Clear", "")
         duplicatedSkin.resetRoi()
         edtImage = edt.compute(duplicatedSkin.getStack())
+        edtImage.resetRoi()
         self.signalPerDepthEpidermisTable = self.measureSignalPerDepthForZone(
                                                 self.getEpidermisRoi(), 
-                                                ImagePlus("edt_epidermis", edtImage.getProcessor().duplicate()))
-        duplicatedSkin.setRoi(self.getEpidermisRoi())
+                                                ImagePlus("edt_epidermis", edtImage.getProcessor().duplicate()))        
+        duplicatedSkin.setRoi(self.getEpidermisRoi(filled=True))
         IJ.run(duplicatedSkin, "Clear", "")
-        duplicatedSkin.resetRoi()
-        edtImage = edt.compute(duplicatedSkin.getStack())                                                        
+        duplicatedSkin.resetRoi()      
+        edtImage = edt.compute(duplicatedSkin.getStack())    
         self.signalPerDepthDermisTable = self.measureSignalPerDepthForZone(
                                                 self.getDermisRoi(), 
-                                                ImagePlus("edt_dermis", edtImage.getProcessor().duplicate()))
+                                                ImagePlus("edt_dermis", edtImage.getProcessor().duplicate()))                                                
+        
         
         
     def measureSignalPerDepthForZone(self, zoneRoi, edt):
@@ -470,22 +550,57 @@ class SkinAnalyzer(object):
     def createCombinedPlot(self):
         depthCorneum = self.signalPerDepthCorneumTable.getColumn("Depth")
         meanCorneum = self.signalPerDepthCorneumTable.getColumn("Mean")
+        corneumFitter = CurveFitter(depthCorneum, meanCorneum)
+        corneumFitter.doFit(self.getFunctionForFit())
+        corneumFittedValues = [corneumFitter.f(depth) for depth in depthCorneum] 
         depthEpidermis = self.signalPerDepthEpidermisTable.getColumn("Depth")
         meanEpidermis = self.signalPerDepthEpidermisTable.getColumn("Mean")
+        epidermisFitter = CurveFitter(depthEpidermis, meanEpidermis)
+        epidermisFitter.doFit(self.getFunctionForFit())
+        epidermisFittedValues = [epidermisFitter.f(depth) for depth in depthEpidermis] 
         depthDermis = self.signalPerDepthDermisTable.getColumn("Depth")
         meanDermis = self.signalPerDepthDermisTable.getColumn("Mean")
-        depthEpidermis = [depth+depthCorneum[-1] for depth in depthEpidermis]
-        depthDermis = [depth+depthEpidermis[-1] for depth in depthDermis]
+        dermisFitter = CurveFitter(depthDermis, meanDermis)
+        dermisFitter.doFit(self.getFunctionForFit())
+        dermisFittedValues = [dermisFitter.f(depth) for depth in depthDermis] 
+        deltaEpidermis = self.signal.getCalibration().getX(self.startDistEpidermis)
+        deltaDermis = self.signal.getCalibration().getX(self.startDistDermis)
+        depthEpidermis = [depth + deltaEpidermis for depth in depthEpidermis]
+        depthDermis = [depth + deltaDermis for depth in depthDermis]    
+        thresholdCorneum = [self.threshold] * len(meanCorneum)
+        thresholdEpidermis = [self.threshold] * len(meanEpidermis)
+        thresholdDermis = [self.threshold] * len(meanDermis)
         depthLabel = "depth[micron]"
         self.plot = Plot("Mean Nanoformulation per Depth", depthLabel, "Mean Intensity")
-        self.plot.setLineWidth (2)
+        self.plot.setLineWidth (1)
         self.plot.setColor("red")
-        self.plot.add("line", depthCorneum, meanCorneum)
+        self.plot.add("circle", depthCorneum, meanCorneum)
+        self.plot.setLineWidth (3)
+        self.plot.add("line", depthCorneum, corneumFittedValues)
+        self.plot.setLineWidth (1)
+        self.plot.setColor("magenta")
+        self.plot.setLineWidth (2)
+        self.plot.add("line", depthCorneum, thresholdCorneum)
+        self.plot.setLineWidth (1)
         self.plot.setColor("blue")
-        self.plot.add("line", depthEpidermis, meanEpidermis) 
+        self.plot.add("circle", depthEpidermis, meanEpidermis) 
+        self.plot.setLineWidth (3)
+        self.plot.add("line", depthEpidermis, epidermisFittedValues)
+        self.plot.setLineWidth (1)
+        self.plot.setColor("magenta")
+        self.plot.setLineWidth (2)
+        self.plot.add("line", depthEpidermis, thresholdEpidermis)
+        self.plot.setLineWidth (1)
         self.plot.setColor("black")
-        self.plot.add("line", depthDermis, meanDermis)     
-        self.plot.addLegend ("stratum corneum\nepidermis\ndermis")
+        self.plot.add("circle", depthDermis, meanDermis)     
+        self.plot.setLineWidth (3)
+        self.plot.add("line", depthDermis, dermisFittedValues)
+        self.plot.setLineWidth (1)
+        self.plot.setColor("magenta")
+        self.plot.setLineWidth (2)
+        self.plot.add("line", depthDermis, thresholdDermis)
+        self.plot.setLineWidth (1)
+        self.plot.addLegend ("0_stratum corneum values\n1__stratum corneum\n2_threshold stratum\n3_epidermis values\n4__epidermis\n5_threshold_epidermis\n6_dermis values\n7__dermis\n8_threshold dermis")
         self.plot.setLimitsToFit(True)
 
 
@@ -503,7 +618,8 @@ class SkinAnalyzer(object):
         self.threshold = options.value("threshold")
         self.function = options.value("function")
         self.subtractBackground = options.value("subtract background")
-        
+        self.measureOnCentralSlice = options.value("measure on central slice")
+       
        
        
 class SkinSegmenter(object):
