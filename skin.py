@@ -8,6 +8,7 @@ from ij import LookUpTable
 from ij.gui import Overlay
 from ij.gui import Plot
 from ij.gui import Roi
+from ij.util import ArrayUtil
 from ij.measure import ResultsTable
 from ij.measure import CurveFitter
 from ij.measure import Measurements
@@ -69,6 +70,9 @@ class SkinAnalyzer(object):
         self.epidermisFillHoles = True
         self.subtractBackground = True
         self.measureOnCentralSlice = True
+        self.nrOfSubzonesCorneum = 4
+        self.nrOfSubzonesEpidermis = 4
+        self.nrOfSubzonesDermis = 4
         
         self.startDistDermis = 0
         self.startDistEpidermis = 0
@@ -122,12 +126,12 @@ class SkinAnalyzer(object):
         
             
     def measureSignal(self):
-        self.measure(self.corneum, self.statsCorneum, self.signalPerDepthCorneumTable)
-        self.measure(self.epidermis, self.statsEpidermis, self.signalPerDepthEpidermisTable)
-        self.measure(self.dermis, self.statsDermis, self.signalPerDepthDermisTable)
+        self.measure(self.corneum, self.statsCorneum, self.signalPerDepthCorneumTable, self.nrOfSubzonesCorneum)
+        self.measure(self.epidermis, self.statsEpidermis, self.signalPerDepthEpidermisTable, self.nrOfSubzonesEpidermis)
+        self.measure(self.dermis, self.statsDermis, self.signalPerDepthDermisTable, self.nrOfSubzonesDermis)
                 
             
-    def measure(self, zone, stats, perDepthtable):
+    def measure(self, zone, stats, perDepthTable, nrOfSubzones):
         features = AnalyzeRegions.Features()
         features.setAll(False)
         features.area = True   
@@ -142,7 +146,8 @@ class SkinAnalyzer(object):
         stats["Mode"] = measures.getMode().getColumn('Mode')[0]
         stats["Skewness"] = measures.getSkewness().getColumn('Skewness')[0]
         stats["Kurtosis"] = measures.getKurtosis().getColumn('Kurtosis')[0]
-        self.measurePenetrationDepths(stats, perDepthtable)
+        self.measurePenetrationDepths(stats, perDepthTable)
+        self.measureSubRegions(stats, perDepthTable, nrOfSubzones)
         
 
     def getFunctionForFit(self):
@@ -164,7 +169,6 @@ class SkinAnalyzer(object):
         
     def measurePenetrationDepths(self, stats, table):
         depths = table.getColumn("Depth")
-        indices = list(range(len(depths)))
         means = table.getColumn("Mean")
         fitter = CurveFitter(depths, means)        
         fitter.doFit(self.getFunctionForFit())        
@@ -181,6 +185,37 @@ class SkinAnalyzer(object):
         stats["%Depth"] = (depth * 100) / depths[-1]
         stats["Max. Depth"] = depths[-1]
         stats["Threshold"] = self.threshold
+        
+        
+    def measureSubRegions(self, stats, table, nrOfZones):    
+        depths = table.getColumn("Depth")       
+        means = table.getColumn("Mean")
+        fitter = CurveFitter(depths, means)        
+        fitter.doFit(self.getFunctionForFit())        
+        fittedValues = [fitter.f(depth) for depth in depths]
+        chunkedDepths = self.chunkList(depths, nrOfZones)
+        chunkedMeans = self.chunkList(fittedValues, nrOfZones)
+        stats['Means'] = []
+        stats['StdDevs'] = []
+        stats['Starts'] = []
+        stats['Ends'] = []
+        for depthsChunk, meansChunk in zip(chunkedDepths, chunkedMeans):
+            util = ArrayUtil(meansChunk)
+            stats["Means"].append(util.getMean())
+            stats["StdDevs"].append(util.getVariance() ** 0.5)
+            stats["Starts"].append(depthsChunk[0])
+            stats["Ends"].append(depthsChunk[-1])
+            
+        
+    @classmethod
+    def chunkList(cls, aList, nrOfChunks):
+        lst = aList[:]
+        chunked = []
+        for i in reversed(range(1, nrOfChunks + 1)):
+            split_point = len(lst) // i
+            chunked.append(lst[:split_point])
+            lst = lst[split_point:]
+        return chunked
         
         
     def doBackgroundSubtraction(self):
@@ -465,6 +500,13 @@ class SkinAnalyzer(object):
         aTable.setValue("Max. Depth", rowIndex, zone["Max. Depth"])
         aTable.setValue("Threshold", rowIndex, zone["Threshold"])
         aTable.setValue("Path", rowIndex, self.path)
+        index = 1
+        for mean, stdDev, start, end in zip(zone["Means"],zone["StdDevs"], zone["Starts"], zone["Ends"]):
+            aTable.setValue("Mean-" + str(index), rowIndex, mean)
+            aTable.setValue("StdDev-" + str(index), rowIndex, stdDev)
+            aTable.setValue("Start" + str(index), rowIndex, start)
+            aTable.setValue("End" + str(index), rowIndex, end)
+            index = index + 1
         
         
     def measureSignalPerDepth(self):
@@ -619,6 +661,9 @@ class SkinAnalyzer(object):
         self.function = options.value("function")
         self.subtractBackground = options.value("subtract background")
         self.measureOnCentralSlice = options.value("measure on central slice")
+        self.nrOfSubzonesCorneum = options.value("corneum subregions")
+        self.nrOfSubzonesEpidermis = options.value("epidermis subregions")
+        self.nrOfSubzonesDermis = options.value("dermis subregions")
        
        
        
