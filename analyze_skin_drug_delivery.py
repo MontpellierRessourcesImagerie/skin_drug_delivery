@@ -52,6 +52,7 @@ def getOptions():
     options.addBool("normalize", value=True)
     options.addBool("fill holes epidermis", True)
     options.addBool("remove holes", True)
+    options.addInt("min. hole size", 100)
     options.addBool("subtract background", True)
     options.addBool("measure on central slice", True)
     options.load()

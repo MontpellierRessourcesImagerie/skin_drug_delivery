@@ -25,6 +25,8 @@ from ij.plugin.filter import ThresholdToSelection
 from inra.ijpb.math import ImageCalculator as InraImageCalculator
 from inra.ijpb.binary import BinaryImages
 from inra.ijpb.label import LabelImages
+from inra.ijpb.label.select import LabelSizeFiltering
+from inra.ijpb.label.select import RelationalOperator
 from inra.ijpb.measure import IntensityMeasures
 from inra.ijpb.morphology import Reconstruction
 from inra.ijpb.morphology.strel import DiskStrel
@@ -63,6 +65,7 @@ class SkinAnalyzer(object):
         self.delta = 1
         self.normalize = True
         self.removeHoles = True
+        self.minHoleSize = 100
         self.skinMedianRadius = 50
         self.epidermisSigma = 32
         self.threshold = 1600
@@ -199,12 +202,14 @@ class SkinAnalyzer(object):
         stats['StdDevs'] = []
         stats['Starts'] = []
         stats['Ends'] = []
+        lastEnd = 0
         for depthsChunk, meansChunk in zip(chunkedDepths, chunkedMeans):
             util = ArrayUtil(meansChunk)
             stats["Means"].append(util.getMean())
             stats["StdDevs"].append(util.getVariance() ** 0.5)
-            stats["Starts"].append(depthsChunk[0])
+            stats["Starts"].append(lastEnd)
             stats["Ends"].append(depthsChunk[-1])
+            lastEnd = depthsChunk[-1]
             
         
     @classmethod
@@ -410,7 +415,7 @@ class SkinAnalyzer(object):
         
     def removeHolesInZones(self):
         self.corneum = self.removeHolesIn(self.corneum)
-        self.epidermis = self.removeHolesIn(self.epidermis)
+        #self.epidermis = self.removeHolesIn(self.epidermis)
         
         
     def removeHolesIn(self, image):
@@ -430,7 +435,24 @@ class SkinAnalyzer(object):
          self.holes = ImagePlus("holes", ImageJFunctions.wrap(self.holes, "").getProcessor().duplicate())
          self.holes.getProcessor().setThreshold (0,0)
          self.holes.setProcessor(self.holes.getProcessor().createMask())      
-         
+         if self.minHoleSize > 0:
+            self.removeSmallHoles()
+            
+            
+    def removeSmallHoles(self):
+        sizeFilter = LabelSizeFiltering(RelationalOperator.GT, self.minHoleSize)
+        
+        ip = self.holes.getProcessor().duplicate()        
+        ip.invert()    
+        ip = BinaryImages.componentsLabeling(ip, 4, 16)        
+        ip = sizeFilter.process(ip)
+        ip.setThreshold(1, 65535)
+        ip = ip.createMask()
+        ip.invert()
+        self.holes.setProcessor(ip)
+        self.holes.updateAndDraw()
+        
+    
          
     @classmethod
     def getClassifierPath(cls):
@@ -657,6 +679,7 @@ class SkinAnalyzer(object):
         self.normalize = options.value("normalize")
         self.epidermisFillHoles = options.value("fill holes epidermis")
         self.removeHoles = options.value("remove holes")
+        self.minHoleSize = options.value("min. hole size")
         self.threshold = options.value("threshold")
         self.function = options.value("function")
         self.subtractBackground = options.value("subtract background")
